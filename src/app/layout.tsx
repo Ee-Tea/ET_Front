@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ET-Agent",
+  title: "FT",
   description: "농업 자격증 및 교육 관련 AI 에이전트",
 };
 
