@@ -60,28 +60,50 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
   }, [isSupported]);
 
   // 볼륨 모니터링
-  const startVolumeMonitoring = (stream: MediaStream) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    const source = audioContextRef.current.createMediaStreamSource(stream);
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    analyserRef.current.fftSize = 256;
-    source.connect(analyserRef.current);
-
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-
-    const updateVolume = () => {
-      if (analyserRef.current && isListening) {
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        setVolume(average);
-        animationRef.current = requestAnimationFrame(updateVolume);
+  const startVolumeMonitoring = async (stream: MediaStream) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
-    };
 
-    updateVolume();
+      // AudioContext가 일시정지 상태라면 재개
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      analyserRef.current.smoothingTimeConstant = 0.8;
+      source.connect(analyserRef.current);
+
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+
+      const updateVolume = () => {
+        if (analyserRef.current) {
+          analyserRef.current.getByteFrequencyData(dataArray);
+          
+          // 주파수 데이터에서 평균 계산
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / dataArray.length;
+          
+          // 볼륨을 0-100 범위로 정규화
+          const normalizedVolume = Math.min(100, (average / 255) * 100);
+          setVolume(normalizedVolume);
+          
+          console.log('Volume level:', normalizedVolume.toFixed(1) + '%');
+        }
+        
+        animationRef.current = requestAnimationFrame(updateVolume);
+      };
+
+      updateVolume();
+    } catch (error) {
+      console.error('볼륨 모니터링 시작 실패:', error);
+    }
   };
 
   // 마이크 테스트 시작
@@ -102,7 +124,7 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
       streamRef.current = stream;
       setIsListening(true);
       
-      startVolumeMonitoring(stream);
+      await startVolumeMonitoring(stream);
       
     } catch (err) {
       console.error('마이크 테스트 시작 실패:', err);
@@ -135,6 +157,8 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
     
     setIsListening(false);
     setVolume(0);
+    
+    console.log('마이크 테스트 중지됨');
   };
 
   // 컴포넌트 언마운트 시 정리
@@ -213,15 +237,21 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">음성 레벨</span>
-                <span className="text-sm text-gray-600">{Math.round(volume)}%</span>
+                <span className="text-sm text-gray-600">{volume.toFixed(1)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div 
                   className={`h-3 rounded-full transition-all duration-100 ${
-                    volume > 50 ? 'bg-green-500' : volume > 20 ? 'bg-yellow-500' : 'bg-red-500'
+                    volume > 30 ? 'bg-green-500' : volume > 10 ? 'bg-yellow-500' : volume > 0 ? 'bg-orange-500' : 'bg-red-500'
                   }`}
-                  style={{ width: `${Math.min(volume * 2, 100)}%` }}
+                  style={{ width: `${Math.min(volume, 100)}%` }}
                 ></div>
+              </div>
+              <div className="text-xs text-gray-500">
+                {volume > 30 ? '음성이 잘 감지되고 있습니다' : 
+                 volume > 10 ? '음성이 약하게 감지되고 있습니다' : 
+                 volume > 0 ? '음성이 매우 약하게 감지되고 있습니다' : 
+                 '음성이 감지되지 않습니다'}
               </div>
             </div>
 
