@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { VoiceService } from '../services/voiceService';
-import { TTSStreamResponse, VoiceSettings } from '../types/voice';
+import { FrontendVoiceService } from '../services/frontendVoiceService';
+import { TTSResponse, VoiceSettings } from '../types/voice';
 
 interface VoiceStreamingProps {
   text?: string;
@@ -12,15 +12,12 @@ interface VoiceStreamingProps {
 
 export default function VoiceStreaming({ text = '', onTextChange, disabled = false }: VoiceStreamingProps) {
   const [inputText, setInputText] = useState(text);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string>('');
-  const [streamProgress, setStreamProgress] = useState(0);
-  const [audioChunks, setAudioChunks] = useState<string[]>([]);
+  const [audioUrl, setAudioUrl] = useState<string>('');
   
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
-  const isPlayingRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // 음성 설정
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
@@ -30,137 +27,103 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
     pitch: 1.0
   });
 
-  // 컴포넌트 언마운트 시 정리
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
-
   const handleTextChange = (newText: string) => {
     setInputText(newText);
     onTextChange?.(newText);
   };
 
-  const startStreaming = async () => {
+  const generateSpeech = async () => {
     if (!inputText.trim()) {
       setError('텍스트를 입력해주세요');
       return;
     }
 
-    setIsStreaming(true);
+    setIsGenerating(true);
     setError('');
-    setStreamProgress(0);
-    setAudioChunks([]);
-    audioQueueRef.current = [];
     
     try {
-      // AudioContext 초기화
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-
-      // 스트리밍 시작
-      const streamGenerator = VoiceService.textToSpeechStream(inputText, voiceSettings);
+      const response: TTSResponse = await FrontendVoiceService.textToSpeech(inputText, voiceSettings);
       
-      for await (const chunk of streamGenerator) {
-        if (chunk.chunk) {
-          setAudioChunks(prev => [...prev, chunk.chunk]);
+      if (response.success) {
+        if (response.audio_data) {
+          // base64 오디오 데이터를 URL로 변환
+          const audioBlob = new Blob([
+            Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))
+          ], { type: 'audio/wav' });
           
-          // 오디오 청크를 AudioBuffer로 변환
-          try {
-            const audioData = Uint8Array.from(atob(chunk.chunk), c => c.charCodeAt(0));
-            const audioBuffer = await audioContextRef.current!.decodeAudioData(audioData.buffer);
-            audioQueueRef.current.push(audioBuffer);
-            
-            // 자동 재생 시작
-            if (!isPlayingRef.current) {
-              startPlayback();
-            }
-          } catch (err) {
-            console.warn('오디오 청크 디코딩 실패:', err);
-          }
+          const url = URL.createObjectURL(audioBlob);
+          setAudioUrl(url);
+          
+          // 자동 재생
+          playAudio(url);
+        } else {
+          setError('음성 데이터를 받을 수 없습니다');
         }
-        
-        // 진행률 업데이트 (청크 시퀀스 기반)
-        if (chunk.sequence) {
-          setStreamProgress(Math.min((chunk.sequence / 10) * 100, 100)); // 예상 총 청크 수: 10
-        }
-        
-        // 스트림 완료
-        if (chunk.is_final) {
-          setIsStreaming(false);
-          setStreamProgress(100);
-          break;
-        }
+      } else {
+        setError(response.message || '음성 생성에 실패했습니다');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '스트리밍 중 오류가 발생했습니다';
-      setError(errorMessage);
-      setIsStreaming(false);
+      const errorMessage = err instanceof Error ? err.message : '음성 생성 중 오류가 발생했습니다';
+      
+      if (errorMessage.includes('RealTans API 키가 설정되지 않았습니다')) {
+        setError('RealTans API 키를 설정해주세요. 설정 패널에서 API 키를 입력하세요.');
+      } else if (errorMessage.includes('RealTans TTS API 오류')) {
+        setError('RealTans TTS API 오류가 발생했습니다. API 키를 확인해주세요.');
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const startPlayback = async () => {
-    if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+  const playAudio = (url: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     
-    isPlayingRef.current = true;
-    setIsPlaying(true);
+    const audio = new Audio(url);
+    audioRef.current = audio;
     
-    try {
-      while (audioQueueRef.current.length > 0 && isPlayingRef.current) {
-        const audioBuffer = audioQueueRef.current.shift()!;
-        const source = audioContextRef.current!.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContextRef.current!.destination);
-        
-        // 재생 완료 대기
-        await new Promise<void>((resolve) => {
-          source.onended = () => resolve();
-          source.start();
-        });
-      }
-    } catch (err) {
-      console.error('재생 중 오류:', err);
-      setError('오디오 재생 중 오류가 발생했습니다');
-    } finally {
-      isPlayingRef.current = false;
+    audio.onplay = () => setIsPlaying(true);
+    audio.onended = () => setIsPlaying(false);
+    audio.onerror = () => {
+      setIsPlaying(false);
+      setError('오디오 재생에 실패했습니다');
+    };
+    
+    audio.play().catch(err => {
+      setIsPlaying(false);
+      setError('오디오 재생 권한이 필요합니다');
+    });
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setIsPlaying(false);
     }
-  };
-
-  const stopStreaming = () => {
-    setIsStreaming(false);
-    isPlayingRef.current = false;
-    setIsPlaying(false);
-    audioQueueRef.current = [];
   };
 
   const clearText = () => {
     setInputText('');
     onTextChange?.('');
     setError('');
-    setAudioChunks([]);
-    audioQueueRef.current = [];
-    setStreamProgress(0);
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl('');
+    }
   };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-          🌊 실시간 음성 스트리밍
+          🔊 음성 합성 (RealTans)
         </h3>
         <div className="flex items-center space-x-2">
-          {isStreaming && (
-            <div className="flex items-center space-x-1 text-blue-600">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-sm">스트리밍 중</span>
-            </div>
-          )}
-          {isPlaying && !isStreaming && (
+          {isPlaying && (
             <div className="flex items-center space-x-1 text-green-600">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm">재생 중</span>
@@ -178,10 +141,10 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
           <textarea
             value={inputText}
             onChange={(e) => handleTextChange(e.target.value)}
-            placeholder="실시간 음성 스트리밍할 텍스트를 입력하세요..."
+            placeholder="음성으로 변환할 텍스트를 입력하세요..."
             className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={4}
-            disabled={disabled || isStreaming}
+            disabled={disabled || isGenerating}
           />
           {inputText && (
             <button
@@ -209,7 +172,7 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
             value={voiceSettings.language}
             onChange={(e) => setVoiceSettings(prev => ({ ...prev, language: e.target.value }))}
             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={disabled || isStreaming}
+            disabled={disabled || isGenerating}
           >
             <option value="ko">한국어</option>
             <option value="en">English</option>
@@ -226,7 +189,7 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
             value={voiceSettings.voice}
             onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={disabled || isStreaming}
+            disabled={disabled || isGenerating}
           >
             <option value="default">기본</option>
             <option value="female">여성</option>
@@ -246,7 +209,7 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
             value={voiceSettings.speed}
             onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
             className="w-full"
-            disabled={disabled || isStreaming}
+            disabled={disabled || isGenerating}
           />
         </div>
         
@@ -262,65 +225,53 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
             value={voiceSettings.pitch}
             onChange={(e) => setVoiceSettings(prev => ({ ...prev, pitch: parseFloat(e.target.value) }))}
             className="w-full"
-            disabled={disabled || isStreaming}
+            disabled={disabled || isGenerating}
           />
         </div>
       </div>
 
-      {/* 스트리밍 진행률 */}
-      {isStreaming && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>스트리밍 진행률</span>
-            <span>{Math.round(streamProgress)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${streamProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      {/* 오디오 청크 정보 */}
-      {audioChunks.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-center space-x-2 mb-2">
-            <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="text-sm font-medium text-blue-700">스트리밍 상태</span>
-          </div>
-          <div className="text-sm text-blue-800">
-            <p>수신된 오디오 청크: {audioChunks.length}개</p>
-            <p>재생 대기 중: {audioQueueRef.current.length}개</p>
-          </div>
-        </div>
-      )}
-
       {/* 컨트롤 버튼 */}
       <div className="flex items-center justify-center space-x-4">
-        {!isStreaming ? (
+        <button
+          onClick={generateSpeech}
+          disabled={disabled || isGenerating || !inputText.trim()}
+          className="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        >
+          {isGenerating ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>생성 중...</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM15.657 6.343a1 1 0 011.414 0A9.972 9.972 0 0119 12a9.972 9.972 0 01-1.929 5.657 1 1 0 11-1.414-1.414A7.971 7.971 0 0017 12a7.971 7.971 0 00-1.343-4.243 1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              <span>음성 생성</span>
+            </>
+          )}
+        </button>
+
+        {audioUrl && (
           <button
-            onClick={startStreaming}
-            disabled={disabled || !inputText.trim()}
-            className="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            onClick={isPlaying ? stopAudio : () => playAudio(audioUrl)}
+            className="flex items-center space-x-2 px-6 py-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-            </svg>
-            <span>스트리밍 시작</span>
-          </button>
-        ) : (
-          <button
-            onClick={stopStreaming}
-            className="flex items-center space-x-2 px-6 py-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span>스트리밍 중지</span>
+            {isPlaying ? (
+              <>
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>정지</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                </svg>
+                <span>재생</span>
+              </>
+            )}
           </button>
         )}
       </div>
@@ -339,9 +290,9 @@ export default function VoiceStreaming({ text = '', onTextChange, disabled = fal
 
       {/* 사용 안내 */}
       <div className="text-xs text-gray-500 space-y-1">
-        <p>• 실시간으로 음성이 스트리밍되어 즉시 재생됩니다</p>
-        <p>• 긴 텍스트도 빠르게 음성으로 변환됩니다</p>
-        <p>• 스트리밍 중에는 다른 작업을 할 수 있습니다</p>
+        <p>• RealTans API를 사용하여 고품질 음성 합성을 제공합니다</p>
+        <p>• 텍스트를 입력하고 음성 생성 버튼을 클릭하세요</p>
+        <p>• 생성된 음성은 자동으로 재생됩니다</p>
       </div>
     </div>
   );

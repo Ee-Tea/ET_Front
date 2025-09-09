@@ -25,7 +25,7 @@ export default function ChatHistoryContainer({
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-        <h2 className="text-lg font-semibold text-gray-800">채팅 히스토리</h2>
+        <h2 className="text-lg font-semibold text-gray-800 text-center">채팅 히스토리</h2>
       </div>
 
       {/* 내용 */}
@@ -75,22 +75,22 @@ export default function ChatHistoryContainer({
 
       {/* 푸터 - 연결 상태 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">백엔드</span>
-            <div className="flex items-center space-x-1">
-              <div className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={isBackendConnected ? 'text-green-600' : 'text-red-600'}>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 font-medium">백엔드</span>
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${isBackendConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className={`font-semibold ${isBackendConnected ? 'text-green-600' : 'text-red-600'}`}>
                 {isBackendConnected ? '연결됨' : '연결 안됨'}
               </span>
             </div>
           </div>
           
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">음성 서비스</span>
-            <div className="flex items-center space-x-1">
-              <div className={`w-2 h-2 rounded-full ${isVoiceServiceConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={isVoiceServiceConnected ? 'text-green-600' : 'text-red-600'}>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 font-medium">음성 서비스</span>
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${isVoiceServiceConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className={`font-semibold ${isVoiceServiceConnected ? 'text-green-600' : 'text-red-600'}`}>
                 {isVoiceServiceConnected ? '연결됨' : '연결 안됨'}
               </span>
             </div>

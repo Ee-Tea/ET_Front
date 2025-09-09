@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { VoiceService } from '../services/voiceService';
-import { HealthResponse } from '../types/voice';
+import { FrontendVoiceService } from '../services/frontendVoiceService';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -11,12 +10,16 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConnected }: SettingsPanelProps) {
-  const [backendHealth, setBackendHealth] = useState<HealthResponse | null>(null);
-  const [voiceHealth, setVoiceHealth] = useState<HealthResponse | null>(null);
+  const [backendHealth, setBackendHealth] = useState<any>(null);
+  const [voiceHealth, setVoiceHealth] = useState<any>(null);
   const [isCheckingBackend, setIsCheckingBackend] = useState(false);
   const [isCheckingVoice, setIsCheckingVoice] = useState(false);
   const [backendError, setBackendError] = useState<string>('');
   const [voiceError, setVoiceError] = useState<string>('');
+  const [openaiApiKey, setOpenaiApiKey] = useState<string>('');
+  const [realTansApiKey, setRealTansApiKey] = useState<string>('');
+  const [isValidatingKeys, setIsValidatingKeys] = useState(false);
+  const [keyValidationResult, setKeyValidationResult] = useState<{openai_valid: boolean; realTans_valid: boolean} | null>(null);
 
   // 백엔드 헬스 체크
   const checkBackendHealth = async () => {
@@ -61,13 +64,13 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
     }
   };
 
-  // 음성 서비스 헬스 체크
+  // 음성 서비스 헬스 체크 (프론트엔드 기반)
   const checkVoiceHealth = async () => {
     setIsCheckingVoice(true);
     setVoiceError('');
     
     try {
-      const health = await VoiceService.checkHealth();
+      const health = await FrontendVoiceService.checkHealth();
       setVoiceHealth(health);
     } catch (error) {
       setVoiceHealth({
@@ -81,6 +84,47 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
       setIsCheckingVoice(false);
     }
   };
+
+  // API 키 저장
+  const saveApiKeys = () => {
+    if (openaiApiKey.trim() && realTansApiKey.trim()) {
+      FrontendVoiceService.setApiKeys(openaiApiKey.trim(), realTansApiKey.trim());
+      localStorage.setItem('openai_api_key', openaiApiKey.trim());
+      localStorage.setItem('realtans_api_key', realTansApiKey.trim());
+      alert('API 키가 저장되었습니다.');
+    } else {
+      alert('모든 API 키를 입력해주세요.');
+    }
+  };
+
+  // API 키 유효성 검사
+  const validateApiKeys = async () => {
+    if (!openaiApiKey.trim() || !realTansApiKey.trim()) {
+      alert('모든 API 키를 입력해주세요.');
+      return;
+    }
+
+    setIsValidatingKeys(true);
+    try {
+      FrontendVoiceService.setApiKeys(openaiApiKey.trim(), realTansApiKey.trim());
+      const result = await FrontendVoiceService.validateApiKeys();
+      setKeyValidationResult(result);
+    } catch (error) {
+      console.error('API 키 검증 실패:', error);
+      alert('API 키 검증 중 오류가 발생했습니다.');
+    } finally {
+      setIsValidatingKeys(false);
+    }
+  };
+
+  // 저장된 API 키 로드
+  useEffect(() => {
+    const savedOpenaiKey = localStorage.getItem('openai_api_key');
+    const savedRealTansKey = localStorage.getItem('realtans_api_key');
+    
+    if (savedOpenaiKey) setOpenaiApiKey(savedOpenaiKey);
+    if (savedRealTansKey) setRealTansApiKey(savedRealTansKey);
+  }, []);
 
   // 모든 서비스 체크
   const checkAllServices = async () => {
@@ -237,6 +281,75 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
             )}
           </div>
 
+          {/* API 키 설정 */}
+          <div className="bg-blue-50 rounded-lg p-4 space-y-4">
+            <h3 className="font-medium text-blue-800 flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clipRule="evenodd" />
+              </svg>
+              API 키 설정
+            </h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  OpenAI API 키 (Whisper STT용)
+                </label>
+                <input
+                  type="password"
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  RealTans API 키 (TTS용)
+                </label>
+                <input
+                  type="password"
+                  value={realTansApiKey}
+                  onChange={(e) => setRealTansApiKey(e.target.value)}
+                  placeholder="RealTans API 키를 입력하세요"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={saveApiKeys}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={validateApiKeys}
+                  disabled={isValidatingKeys}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300 transition-colors"
+                >
+                  {isValidatingKeys ? '검증 중...' : '유효성 검사'}
+                </button>
+              </div>
+              
+              {keyValidationResult && (
+                <div className="bg-white rounded-md p-3 border">
+                  <div className="flex items-center space-x-4 text-sm">
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${keyValidationResult.openai_valid ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span>OpenAI: {keyValidationResult.openai_valid ? '유효' : '무효'}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${keyValidationResult.realTans_valid ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span>RealTans: {keyValidationResult.realTans_valid ? '유효' : '무효'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 음성 서비스 상태 */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -244,7 +357,7 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
                 <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
                 </svg>
-                음성 서비스
+                음성 서비스 (프론트엔드)
               </h3>
               <div className="flex items-center space-x-2">
                 <button
@@ -267,13 +380,12 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
             </div>
             
             <div className="text-sm text-gray-600">
-              <p><strong>서버 주소:</strong> http://localhost:8001</p>
-              <p><strong>기능:</strong> STT (Whisper), TTS (pyttsx3)</p>
+              <p><strong>STT:</strong> OpenAI Whisper API</p>
+              <p><strong>TTS:</strong> RealTans API</p>
               {voiceHealth && (
                 <>
                   <p><strong>STT 상태:</strong> {voiceHealth.stt_available ? '사용 가능' : '사용 불가'}</p>
                   <p><strong>TTS 상태:</strong> {voiceHealth.tts_available ? '사용 가능' : '사용 불가'}</p>
-                  <p><strong>마지막 확인:</strong> {formatTimestamp(voiceHealth.timestamp)}</p>
                 </>
               )}
             </div>
@@ -290,9 +402,9 @@ export function SettingsPanel({ onClose, isBackendConnected, isVoiceServiceConne
             <h3 className="font-medium text-blue-800 mb-2">서비스 정보</h3>
             <div className="text-sm text-blue-700 space-y-1">
               <p>• 백엔드 서버는 채팅, 문제 생성, PDF 생성 기능을 제공합니다</p>
-              <p>• 음성 서버는 STT(음성인식)와 TTS(음성합성) 기능을 제공합니다</p>
-              <p>• 두 서버가 모두 정상 작동해야 모든 기능을 사용할 수 있습니다</p>
-              <p>• 서버 연결에 문제가 있으면 잠시 후 다시 시도해주세요</p>
+              <p>• 음성 기능은 프론트엔드에서 직접 처리됩니다 (OpenAI Whisper + RealTans)</p>
+              <p>• API 키를 설정하면 음성 인식과 음성 합성 기능을 사용할 수 있습니다</p>
+              <p>• API 키는 브라우저에 안전하게 저장됩니다</p>
             </div>
           </div>
         </div>
