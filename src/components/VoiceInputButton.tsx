@@ -8,47 +8,20 @@ interface VoiceInputButtonProps {
 }
 
 export default function VoiceInputButton({ onTranscript, disabled = false, onOpenSettings }: VoiceInputButtonProps) {
-  const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
-  // 녹음 시간 타이머
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      setRecordingTime(0);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isRecording]);
 
   // 브라우저 지원 여부 확인
   useEffect(() => {
     const checkSupport = () => {
       if (typeof window !== 'undefined') {
-        const supported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        const supported = !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition);
         setIsSupported(supported);
         
         if (!supported) {
-          setError('이 브라우저는 마이크 접근을 지원하지 않습니다. HTTPS 환경에서 사용해주세요.');
+          setError('이 브라우저는 Web Speech API를 지원하지 않습니다. Chrome, Edge, Safari를 사용해주세요.');
         }
       }
     };
@@ -56,15 +29,6 @@ export default function VoiceInputButton({ onTranscript, disabled = false, onOpe
     checkSupport();
   }, []);
 
-  // 컴포넌트 언마운트 시 정리
-  useEffect(() => {
-    return () => {
-      stopRecording();
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   const startRecording = async () => {
     try {
@@ -109,11 +73,6 @@ export default function VoiceInputButton({ onTranscript, disabled = false, onOpe
   };
 
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="flex flex-col items-center space-y-3">
