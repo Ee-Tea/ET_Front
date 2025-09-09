@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import VoiceInputButton from './VoiceInputButton';
 
-interface ChatAreaProps {
+interface ChatContainerProps {
   onProblemDetected: () => void;
   onOpenSettings: () => void;
   onOpenVoice: () => void;
@@ -17,7 +17,7 @@ interface ChatAreaProps {
   currentLayout?: number;
 }
 
-export default function ChatArea({
+export default function ChatContainer({
   onProblemDetected,
   onOpenSettings,
   onOpenVoice,
@@ -29,7 +29,7 @@ export default function ChatArea({
   isSidebarOpen,
   onLayoutChange,
   currentLayout
-}: ChatAreaProps) {
+}: ChatContainerProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -139,10 +139,10 @@ export default function ChatArea({
   };
 
   return (
-    <div className="flex-1 min-h-screen flex flex-col bg-white" suppressHydrationWarning>
-      {/* 채팅 헤더 */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-white h-16 flex items-center">
-        <div className="flex items-center justify-between w-full">
+    <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
+      {/* 헤더 */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* 사이드바 토글 버튼 */}
             <button
@@ -223,7 +223,7 @@ export default function ChatArea({
       </div>
 
       {/* 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center max-w-md">
@@ -280,7 +280,7 @@ export default function ChatArea({
       </div>
 
       {/* 입력 영역 */}
-      <div className="px-6 py-4 border-t border-gray-200 bg-white">
+      <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
         <div className="flex space-x-3">
           <input
             type="text"

@@ -2,49 +2,39 @@
 
 import React from 'react';
 
-interface SidebarProps {
+interface ChatHistoryContainerProps {
   testSessions: any[];
   setTestSessions: React.Dispatch<React.SetStateAction<any[]>>;
   currentSessionId: string | null;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   onNewChat: () => void;
-  onOpenSettings: () => void;
-  onOpenVoice: () => void;
   isBackendConnected: boolean;
   isVoiceServiceConnected: boolean;
-  isOpen: boolean;
 }
 
-export default function Sidebar({
+export default function ChatHistoryContainer({
   testSessions,
   setTestSessions,
   currentSessionId,
   setCurrentSessionId,
   onNewChat,
-  onOpenSettings,
-  onOpenVoice,
   isBackendConnected,
-  isVoiceServiceConnected,
-  isOpen
-}: SidebarProps) {
+  isVoiceServiceConnected
+}: ChatHistoryContainerProps) {
   return (
-    <div className={`w-1/5 min-w-64 min-h-screen bg-white flex flex-col border-r border-gray-200 shadow-sm ${
-      isOpen ? 'block' : 'hidden'
-    }`}>
-      {/* 사이드바 헤더 */}
-      <div className="p-4 border-b border-gray-200 bg-white h-16 flex items-center">
-        <div className="flex items-center justify-center w-full">
-          <h2 className="text-lg font-semibold text-gray-800">채팅 히스토리</h2>
-        </div>
+    <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
+      {/* 헤더 */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <h2 className="text-lg font-semibold text-gray-800">채팅 히스토리</h2>
       </div>
 
-      {/* 채팅 히스토리 */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* 내용 */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         <div className="space-y-2">
           {/* 새 채팅 버튼 */}
           <button
             onClick={onNewChat}
-            className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors flex items-center justify-center space-x-2"
+            className="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center space-x-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -63,8 +53,8 @@ export default function Sidebar({
                 key={session.id}
                 className={`p-3 rounded-lg cursor-pointer transition-colors ${
                   currentSessionId === session.id
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-300 hover:bg-gray-800'
+                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                    : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 }`}
                 onClick={() => setCurrentSessionId(session.id)}
               >
@@ -83,10 +73,9 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* 사이드바 푸터 */}
-      <div className="px-6 py-4 border-t border-gray-200 bg-white">
-        <div className="space-y-2 w-full">
-          {/* 연결 상태 표시 */}
+      {/* 푸터 - 연결 상태 */}
+      <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+        <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">백엔드</span>
             <div className="flex items-center space-x-1">

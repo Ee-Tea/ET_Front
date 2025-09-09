@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from '@/components/Sidebar';
-import ChatArea from '@/components/ChatArea';
-import { ProblemContainer } from '@/components/ProblemContainer';
+import ChatHistoryContainer from '@/components/ChatHistoryContainer';
+import ProblemContainer from '@/components/ProblemContainer';
+import ChatContainer from '@/components/ChatContainer';
 import { VoicePanel } from '@/components/VoicePanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { isFarmingRelated } from '@/utils/farmingDetection';
@@ -37,6 +37,12 @@ export default function Home() {
   const [showVoicePanel, setShowVoicePanel] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  
+  // 사이드바 토글 상태
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // 레이아웃 모드 (1: 채팅내역+문제+채팅, 2: 문제+채팅, 3: 채팅만)
+  const [layoutMode, setLayoutMode] = useState(1);
   
   // 백엔드 연결 상태
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -318,29 +324,118 @@ export default function Home() {
 
 
   return (
-    <div className="h-screen w-screen bg-white flex" suppressHydrationWarning>
-      {/* 왼쪽 사이드바 */}
-      <Sidebar 
-        testSessions={testSessions}
-        setTestSessions={setTestSessions}
-        currentSessionId={currentSessionId}
-        setCurrentSessionId={setCurrentSessionId}
-        onNewChat={() => window.location.reload()}
-        onOpenSettings={() => setShowSettingsPanel(true)}
-        onOpenVoice={() => setShowVoicePanel(true)}
-        isBackendConnected={isBackendConnected}
-        isVoiceServiceConnected={isVoiceServiceConnected}
-      />
+    <div className="h-screen w-screen bg-gray-100 p-4" suppressHydrationWarning>
+      <div className="h-full flex gap-4">
+        {/* Frame 1: 채팅내역 + 문제 + 채팅 */}
+        {layoutMode === 1 && (
+          <>
+            {/* 왼쪽 채팅내역 컨테이너 */}
+            <div className="w-1/5 min-w-80 h-full">
+              <ChatHistoryContainer
+                testSessions={testSessions}
+                setTestSessions={setTestSessions}
+                currentSessionId={currentSessionId}
+                setCurrentSessionId={setCurrentSessionId}
+                onNewChat={() => window.location.reload()}
+                isBackendConnected={isBackendConnected}
+                isVoiceServiceConnected={isVoiceServiceConnected}
+              />
+            </div>
 
-      {/* 메인 채팅 영역 */}
-      <ChatArea 
-        onProblemDetected={fetchRecentQuestions}
-        onOpenSettings={() => setShowSettingsPanel(true)}
-        onVoiceTranscript={handleVoiceTranscript}
-        onFarmingTTS={playFarmingTTS}
-        isBackendConnected={isBackendConnected}
-        isVoiceServiceConnected={isVoiceServiceConnected}
-      />
+            {/* 가운데 문제 컨테이너 */}
+            <div className="w-1/3 min-w-80 h-full">
+              <ProblemContainer
+                questions={parsedQuestions}
+                selectedAnswers={selectedAnswers}
+                onAnswerSelect={handleAnswerSelect}
+                onSubmit={submitAnswers}
+                isSubmitting={isSubmitting}
+                submittedAnswers={submittedAnswers}
+                showResults={showResults}
+                score={score}
+                totalQuestions={totalQuestions}
+                themeColor={themeColor}
+                gradingResults={gradingResults}
+              />
+            </div>
+
+            {/* 오른쪽 채팅 컨테이너 */}
+            <div className="flex-1 h-full">
+              <ChatContainer
+                onProblemDetected={fetchRecentQuestions}
+                onOpenSettings={() => setShowSettingsPanel(true)}
+                onOpenVoice={() => setShowVoicePanel(true)}
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                onVoiceTranscript={handleVoiceTranscript}
+                onFarmingTTS={playFarmingTTS}
+                isBackendConnected={isBackendConnected}
+                isVoiceServiceConnected={isVoiceServiceConnected}
+                isSidebarOpen={isSidebarOpen}
+                onLayoutChange={setLayoutMode}
+                currentLayout={layoutMode}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Frame 2: 문제 + 채팅 */}
+        {layoutMode === 2 && (
+          <>
+            {/* 왼쪽 문제 컨테이너 */}
+            <div className="w-1/2 min-w-80 h-full">
+              <ProblemContainer
+                questions={parsedQuestions}
+                selectedAnswers={selectedAnswers}
+                onAnswerSelect={handleAnswerSelect}
+                onSubmit={submitAnswers}
+                isSubmitting={isSubmitting}
+                submittedAnswers={submittedAnswers}
+                showResults={showResults}
+                score={score}
+                totalQuestions={totalQuestions}
+                themeColor={themeColor}
+                gradingResults={gradingResults}
+              />
+            </div>
+
+            {/* 오른쪽 채팅 컨테이너 */}
+            <div className="flex-1 h-full">
+              <ChatContainer
+                onProblemDetected={fetchRecentQuestions}
+                onOpenSettings={() => setShowSettingsPanel(true)}
+                onOpenVoice={() => setShowVoicePanel(true)}
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                onVoiceTranscript={handleVoiceTranscript}
+                onFarmingTTS={playFarmingTTS}
+                isBackendConnected={isBackendConnected}
+                isVoiceServiceConnected={isVoiceServiceConnected}
+                isSidebarOpen={isSidebarOpen}
+                onLayoutChange={setLayoutMode}
+                currentLayout={layoutMode}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Frame 3: 채팅만 */}
+        {layoutMode === 3 && (
+          <div className="w-full h-full">
+            <ChatContainer
+              onProblemDetected={fetchRecentQuestions}
+              onOpenSettings={() => setShowSettingsPanel(true)}
+              onOpenVoice={() => setShowVoicePanel(true)}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              onVoiceTranscript={handleVoiceTranscript}
+              onFarmingTTS={playFarmingTTS}
+              isBackendConnected={isBackendConnected}
+              isVoiceServiceConnected={isVoiceServiceConnected}
+              isSidebarOpen={isSidebarOpen}
+              onLayoutChange={setLayoutMode}
+              currentLayout={layoutMode}
+            />
+          </div>
+        )}
+      </div>
 
       {/* 문제 컨테이너 (슬라이드 인) */}
       {showProblemContainer && (
