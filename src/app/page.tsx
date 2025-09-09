@@ -61,8 +61,10 @@ export default function Home() {
 
     const checkVoiceServiceConnection = async () => {
       try {
-        const response = await fetch('http://localhost:8001/health');
-        setIsVoiceServiceConnected(response.ok);
+        // 프론트엔드 기반 - API 키 확인
+        const openaiKey = localStorage.getItem('openai_api_key');
+        const realTansKey = localStorage.getItem('realtans_api_key');
+        setIsVoiceServiceConnected(!!(openaiKey && realTansKey));
       } catch (error) {
         setIsVoiceServiceConnected(false);
       }

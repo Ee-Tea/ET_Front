@@ -35,7 +35,7 @@ export default function ProblemContainer({
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-800">문제</h2>
+        <h2 className="text-lg font-semibold text-gray-800 text-center flex-1">문제</h2>
         {onClose && (
           <button
             onClick={onClose}
