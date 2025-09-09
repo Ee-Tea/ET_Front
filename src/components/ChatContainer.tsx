@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import VoiceInputButton from './VoiceInputButton';
+import { SettingsPanel } from './SettingsPanel';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatContainerProps {
   onProblemDetected: () => void;
@@ -11,7 +13,6 @@ interface ChatContainerProps {
   onVoiceTranscript: (transcript: string) => void;
   onFarmingTTS: (text: string) => void;
   isBackendConnected: boolean;
-  isVoiceServiceConnected: boolean;
   isSidebarOpen: boolean;
   onLayoutChange?: (mode: number) => void;
   currentLayout?: number;
@@ -25,11 +26,27 @@ export default function ChatContainer({
   onVoiceTranscript,
   onFarmingTTS,
   isBackendConnected,
-  isVoiceServiceConnected,
   isSidebarOpen,
   onLayoutChange,
   currentLayout
 }: ChatContainerProps) {
+  const { user } = useAuth();
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setShowSettingsDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -208,16 +225,25 @@ export default function ChatContainer({
             </button>
             
             {/* 설정 버튼 */}
-            <button
-              onClick={onOpenSettings}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              title="설정"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                title="설정"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              
+              {/* 설정 드롭다운 */}
+              <SettingsPanel
+                isOpen={showSettingsDropdown}
+                onClose={() => setShowSettingsDropdown(false)}
+                isBackendConnected={isBackendConnected}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -234,7 +260,9 @@ export default function ChatContainer({
                   className="w-24 h-24 mx-auto object-contain"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">안녕하세요! FT입니다</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+                안녕하세요! {user ? `${user.name}님` : ''} FT입니다
+              </h3>
               <p className="text-gray-600 mb-6 text-center">
                 농사와 정보처리기사 관련 질문에 답변해드릴 수 있습니다.
               </p>

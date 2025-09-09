@@ -5,14 +5,18 @@ import ChatHistoryContainer from '@/components/ChatHistoryContainer';
 import ProblemContainer from '@/components/ProblemContainer';
 import ChatContainer from '@/components/ChatContainer';
 import { VoicePanel } from '@/components/VoicePanel';
-import { SettingsPanel } from '@/components/SettingsPanel';
+import { LoginModal } from '@/components/LoginModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { isFarmingRelated } from '@/utils/farmingDetection';
+import { extractAuthCodeFromUrl, extractErrorFromUrl } from '@/utils/googleAuth';
 
 // 메인 페이지 컴포넌트
 export default function Home() {
+  const { user, isLoggedIn, isLoading } = useAuth();
   const [themeColor, setThemeColor] = useState('#10B981');
   const [testSessions, setTestSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   // 문제 관련 상태
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
@@ -35,7 +39,6 @@ export default function Home() {
   
   // 음성 관련 상태
   const [showVoicePanel, setShowVoicePanel] = useState(false);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   
   // 사이드바 토글 상태
@@ -46,7 +49,13 @@ export default function Home() {
   
   // 백엔드 연결 상태
   const [isBackendConnected, setIsBackendConnected] = useState(false);
-  const [isVoiceServiceConnected, setIsVoiceServiceConnected] = useState(false);
+  
+  // 로그인 상태 확인 (선택사항으로 변경)
+  useEffect(() => {
+    if (isLoggedIn) {
+      setShowLoginModal(false);
+    }
+  }, [isLoggedIn]);
 
   // 백엔드 연결 상태 확인
   useEffect(() => {
@@ -59,23 +68,11 @@ export default function Home() {
       }
     };
 
-    const checkVoiceServiceConnection = async () => {
-      try {
-        // 프론트엔드 기반 - API 키 확인
-        const openaiKey = localStorage.getItem('openai_api_key');
-        const realTansKey = localStorage.getItem('realtans_api_key');
-        setIsVoiceServiceConnected(!!(openaiKey && realTansKey));
-      } catch (error) {
-        setIsVoiceServiceConnected(false);
-      }
-    };
 
     checkBackendConnection();
-    checkVoiceServiceConnection();
 
     const interval = setInterval(() => {
       checkBackendConnection();
-      checkVoiceServiceConnection();
     }, 5000);
 
     return () => clearInterval(interval);
@@ -325,14 +322,27 @@ export default function Home() {
   };
 
 
+  // 로딩 중일 때
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="h-screen w-screen bg-gray-100 p-4" suppressHydrationWarning>
-      <div className="h-full flex gap-4">
+      <div className="h-full flex gap-4" suppressHydrationWarning>
         {/* Frame 1: 채팅내역 + 문제 + 채팅 */}
         {layoutMode === 1 && (
           <>
             {/* 왼쪽 채팅내역 컨테이너 */}
-            <div className="w-1/5 min-w-80 h-full">
+            <div className="w-1/5 min-w-80 h-full" suppressHydrationWarning>
               <ChatHistoryContainer
                 testSessions={testSessions}
                 setTestSessions={setTestSessions}
@@ -340,12 +350,11 @@ export default function Home() {
                 setCurrentSessionId={setCurrentSessionId}
                 onNewChat={() => window.location.reload()}
                 isBackendConnected={isBackendConnected}
-                isVoiceServiceConnected={isVoiceServiceConnected}
               />
             </div>
 
             {/* 가운데 문제 컨테이너 */}
-            <div className="w-1/3 min-w-80 h-full">
+            <div className="w-1/3 min-w-80 h-full" suppressHydrationWarning>
               <ProblemContainer
                 questions={parsedQuestions}
                 selectedAnswers={selectedAnswers}
@@ -362,16 +371,15 @@ export default function Home() {
             </div>
 
             {/* 오른쪽 채팅 컨테이너 */}
-            <div className="flex-1 h-full">
+            <div className="flex-1 h-full" suppressHydrationWarning>
               <ChatContainer
                 onProblemDetected={fetchRecentQuestions}
-                onOpenSettings={() => setShowSettingsPanel(true)}
+                onOpenSettings={() => {}}
                 onOpenVoice={() => setShowVoicePanel(true)}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 onVoiceTranscript={handleVoiceTranscript}
                 onFarmingTTS={playFarmingTTS}
                 isBackendConnected={isBackendConnected}
-                isVoiceServiceConnected={isVoiceServiceConnected}
                 isSidebarOpen={isSidebarOpen}
                 onLayoutChange={setLayoutMode}
                 currentLayout={layoutMode}
@@ -401,16 +409,15 @@ export default function Home() {
             </div>
 
             {/* 오른쪽 채팅 컨테이너 */}
-            <div className="flex-1 h-full">
+            <div className="flex-1 h-full" suppressHydrationWarning>
               <ChatContainer
                 onProblemDetected={fetchRecentQuestions}
-                onOpenSettings={() => setShowSettingsPanel(true)}
+                onOpenSettings={() => {}}
                 onOpenVoice={() => setShowVoicePanel(true)}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 onVoiceTranscript={handleVoiceTranscript}
                 onFarmingTTS={playFarmingTTS}
                 isBackendConnected={isBackendConnected}
-                isVoiceServiceConnected={isVoiceServiceConnected}
                 isSidebarOpen={isSidebarOpen}
                 onLayoutChange={setLayoutMode}
                 currentLayout={layoutMode}
@@ -424,13 +431,12 @@ export default function Home() {
           <div className="w-full h-full">
             <ChatContainer
               onProblemDetected={fetchRecentQuestions}
-              onOpenSettings={() => setShowSettingsPanel(true)}
+              onOpenSettings={() => {}}
               onOpenVoice={() => setShowVoicePanel(true)}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
               onVoiceTranscript={handleVoiceTranscript}
               onFarmingTTS={playFarmingTTS}
               isBackendConnected={isBackendConnected}
-              isVoiceServiceConnected={isVoiceServiceConnected}
               isSidebarOpen={isSidebarOpen}
               onLayoutChange={setLayoutMode}
               currentLayout={layoutMode}
@@ -462,18 +468,15 @@ export default function Home() {
         <VoicePanel
           onClose={() => setShowVoicePanel(false)}
           isBackendConnected={isBackendConnected}
-          isVoiceServiceConnected={isVoiceServiceConnected}
         />
       )}
 
-      {/* 설정 패널 모달 */}
-      {showSettingsPanel && (
-        <SettingsPanel
-          onClose={() => setShowSettingsPanel(false)}
-          isBackendConnected={isBackendConnected}
-          isVoiceServiceConnected={isVoiceServiceConnected}
-        />
-      )}
+      {/* 로그인 모달 */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
+
   </div>
   );
 }

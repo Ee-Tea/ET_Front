@@ -9,7 +9,6 @@ interface ChatHistoryContainerProps {
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   onNewChat: () => void;
   isBackendConnected: boolean;
-  isVoiceServiceConnected: boolean;
 }
 
 export default function ChatHistoryContainer({
@@ -19,7 +18,7 @@ export default function ChatHistoryContainer({
   setCurrentSessionId,
   onNewChat,
   isBackendConnected,
-  isVoiceServiceConnected
+  onOpenLogin
 }: ChatHistoryContainerProps) {
   return (
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
@@ -75,25 +74,13 @@ export default function ChatHistoryContainer({
 
       {/* 푸터 - 연결 상태 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 font-medium">백엔드</span>
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isBackendConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={`font-semibold ${isBackendConnected ? 'text-green-600' : 'text-red-600'}`}>
-                {isBackendConnected ? '연결됨' : '연결 안됨'}
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 font-medium">음성 서비스</span>
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isVoiceServiceConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={`font-semibold ${isVoiceServiceConnected ? 'text-green-600' : 'text-red-600'}`}>
-                {isVoiceServiceConnected ? '연결됨' : '연결 안됨'}
-              </span>
-            </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600 font-medium">백엔드</span>
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${isBackendConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className={`font-semibold ${isBackendConnected ? 'text-green-600' : 'text-red-600'}`}>
+              {isBackendConnected ? '연결됨' : '연결 안됨'}
+            </span>
           </div>
         </div>
       </div>
