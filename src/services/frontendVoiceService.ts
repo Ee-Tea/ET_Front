@@ -5,6 +5,13 @@ export class FrontendVoiceService {
   private static openaiApiKey: string | null = null;
   private static realTansApiKey: string | null = null;
 
+  // 네트워크 연결 상태 확인
+  private static async checkNetworkConnection(): Promise<boolean> {
+    // Web Speech API는 브라우저 내장 기능이므로 네트워크 연결 확인 불필요
+    // 브라우저가 Web Speech API를 지원하는지만 확인하면 됨
+    return true;
+  }
+
   // API 키 설정
   static setApiKeys(openaiKey: string, realTansKey: string) {
     this.openaiApiKey = openaiKey;
@@ -12,7 +19,9 @@ export class FrontendVoiceService {
   }
 
   // STT: Web Speech API 사용 (API 키 불필요)
-  static async speechToTextWebSpeech(language: string = 'ko-KR'): Promise<STTResponse> {
+  static async speechToTextWebSpeech(language: string = 'ko-KR', retryCount: number = 0): Promise<STTResponse> {
+    const maxRetries = 2; // 최대 2번 재시도
+    
     return new Promise((resolve, reject) => {
       // Web Speech API 지원 확인
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -23,43 +32,150 @@ export class FrontendVoiceService {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
 
+      // 타임아웃 설정 (10초)
+      const timeoutId = setTimeout(() => {
+        recognition.stop();
+        reject(new Error('음성 인식 시간이 초과되었습니다. 다시 시도해주세요.'));
+      }, 10000);
+
+      // Web Speech API 설정 최적화
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // 중간 결과도 받아서 더 빠른 피드백
       recognition.lang = language;
+      recognition.maxAlternatives = 1; // 최대 대안 수 제한
+      
+      // Web Speech API는 브라우저 내장 기능이므로 외부 API 엔드포인트 설정 불필요
+      // serviceURI 설정을 제거하여 브라우저의 기본 Web Speech API 사용
+
+      let hasResult = false;
 
       recognition.onstart = () => {
         console.log('🎤 Web Speech API 음성 인식 시작');
+        clearTimeout(timeoutId);
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        console.log('🎤 Web Speech API 인식 결과:', transcript);
+        if (hasResult) return; // 중복 처리 방지
         
-        resolve({
-          success: true,
-          message: '음성 인식이 완료되었습니다.',
-          text: transcript,
-          language: language,
-          duration: 0
+        const result = event.results[event.results.length - 1];
+        const transcript = result[0].transcript;
+        const confidence = result[0].confidence;
+        
+        console.log('🎤 Web Speech API 인식 결과:', {
+          transcript,
+          confidence,
+          isFinal: result.isFinal
         });
+        
+        // 중간 결과도 처리 (더 빠른 응답)
+        if (transcript.trim().length > 0) {
+          // 최종 결과 처리
+          if (result.isFinal) {
+            hasResult = true;
+            clearTimeout(timeoutId);
+            
+            // 신뢰도가 낮은 경우 (0.2 미만) 재시도 제안 (임계값 낮춤)
+            if (confidence < 0.2) {
+              console.warn('🎤 낮은 신뢰도로 인식됨:', { transcript, confidence });
+              if (retryCount < maxRetries) {
+                console.log(`🔄 낮은 신뢰도로 인한 재시도 ${retryCount + 1}/${maxRetries}`);
+                setTimeout(() => {
+                  this.speechToTextWebSpeech(language, retryCount + 1)
+                    .then(resolve)
+                    .catch(reject);
+                }, 1000 * (retryCount + 1));
+                return;
+              }
+              reject(new Error('음성이 명확하지 않습니다. 더 천천히 말씀해주세요.'));
+              return;
+            }
+            
+            // 텍스트가 너무 짧은 경우 (1글자 미만) 재시도 제안 (임계값 낮춤)
+            if (transcript.trim().length < 1) {
+              console.warn('🎤 너무 짧은 음성:', transcript);
+              if (retryCount < maxRetries) {
+                console.log(`🔄 짧은 음성으로 인한 재시도 ${retryCount + 1}/${maxRetries}`);
+                setTimeout(() => {
+                  this.speechToTextWebSpeech(language, retryCount + 1)
+                    .then(resolve)
+                    .catch(reject);
+                }, 1000 * (retryCount + 1));
+                return;
+              }
+              reject(new Error('음성이 너무 짧습니다. 더 길게 말씀해주세요.'));
+              return;
+            }
+            
+            console.log('🎤 최종 인식 결과:', { transcript: transcript.trim(), confidence });
+            
+            resolve({
+              success: true,
+              message: '음성 인식이 완료되었습니다.',
+              text: transcript.trim(),
+              language: language,
+              duration: 0
+            });
+          }
+          // 중간 결과도 처리 (더 빠른 응답을 위해)
+          else if (transcript.trim().length >= 3 && confidence > 0.5) {
+            hasResult = true;
+            clearTimeout(timeoutId);
+            
+            console.log('🎤 중간 결과로 인식 완료:', { transcript: transcript.trim(), confidence });
+            
+            resolve({
+              success: true,
+              message: '음성 인식이 완료되었습니다.',
+              text: transcript.trim(),
+              language: language,
+              duration: 0
+            });
+          }
+        }
       };
 
       recognition.onerror = (event: any) => {
         console.error('Web Speech API 오류:', event.error);
+        clearTimeout(timeoutId);
+        
         let errorMessage = '음성 인식 중 오류가 발생했습니다.';
         
         switch (event.error) {
           case 'no-speech':
-            errorMessage = '음성이 감지되지 않았습니다. 다시 시도해주세요.';
+            errorMessage = '음성이 감지되지 않았습니다. 마이크에 더 가까이서 말씀해주세요.';
             break;
           case 'audio-capture':
-            errorMessage = '마이크에 접근할 수 없습니다. 마이크 권한을 확인해주세요.';
+            errorMessage = '마이크에 접근할 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.';
             break;
           case 'not-allowed':
             errorMessage = '마이크 접근 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.';
             break;
           case 'network':
-            errorMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+            if (retryCount < maxRetries) {
+              console.log(`🔄 네트워크 오류로 인한 재시도 ${retryCount + 1}/${maxRetries}`);
+              setTimeout(() => {
+                this.speechToTextWebSpeech(language, retryCount + 1)
+                  .then(resolve)
+                  .catch(reject);
+              }, 2000 * (retryCount + 1)); // 재시도 간격 증가
+              return;
+            }
+            errorMessage = '네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인하고 잠시 후 다시 시도해주세요.';
+            break;
+          case 'aborted':
+            errorMessage = '음성 인식이 중단되었습니다. 다시 시도해주세요.';
+            break;
+          case 'service-not-allowed':
+            errorMessage = '음성 인식 서비스가 허용되지 않습니다. HTTPS 환경에서 사용해주세요.';
+            break;
+          case 'bad-grammar':
+            errorMessage = '음성 인식 문법 오류가 발생했습니다. 다시 시도해주세요.';
+            break;
+          case 'aborted':
+            errorMessage = '음성 인식이 중단되었습니다.';
+            break;
+          default:
+            errorMessage = `음성 인식 오류가 발생했습니다: ${event.error}. 잠시 후 다시 시도해주세요.`;
             break;
         }
         
@@ -68,9 +184,30 @@ export class FrontendVoiceService {
 
       recognition.onend = () => {
         console.log('🎤 Web Speech API 음성 인식 종료');
+        clearTimeout(timeoutId);
+        
+        // 결과가 없이 종료된 경우 - 재시도 가능한 오류로 처리
+        if (!hasResult) {
+          if (retryCount < maxRetries) {
+            console.log(`🔄 음성 미감지로 인한 재시도 ${retryCount + 1}/${maxRetries}`);
+            setTimeout(() => {
+              this.speechToTextWebSpeech(language, retryCount + 1)
+                .then(resolve)
+                .catch(reject);
+            }, 1000 * (retryCount + 1)); // 재시도 간격
+            return;
+          }
+          reject(new Error('음성이 감지되지 않았습니다. 마이크에 더 가까이서 말씀해주세요.'));
+        }
       };
 
-      recognition.start();
+      // Web Speech API는 브라우저 내장 기능이므로 바로 음성 인식 시작
+      try {
+        recognition.start();
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(new Error('음성 인식을 시작할 수 없습니다. 마이크 권한을 확인해주세요.'));
+      }
     });
   }
 

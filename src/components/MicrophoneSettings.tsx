@@ -14,6 +14,7 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
   const [error, setError] = useState<string>('');
   const [testText, setTestText] = useState('안녕하세요, 마이크 테스트입니다.');
+  const [microphoneGain, setMicrophoneGain] = useState(0.5); // 마이크 게인 설정
   
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -116,7 +117,10 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
           deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000, // 낮은 샘플레이트로 감도 조정
+          channelCount: 1,   // 모노 채널
+          volume: microphoneGain        // 사용자 설정 게인 사용
         }
       };
 
@@ -229,6 +233,33 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
             </p>
           </div>
 
+          {/* 마이크 게인 설정 */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-medium text-gray-800">마이크 감도 조정</h3>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">마이크 게인</span>
+                <span className="text-sm text-gray-600">{Math.round(microphoneGain * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.1"
+                value={microphoneGain}
+                onChange={(e) => setMicrophoneGain(parseFloat(e.target.value))}
+                className="w-full"
+                disabled={isListening}
+              />
+              <div className="text-xs text-gray-500">
+                {microphoneGain <= 0.3 ? '낮은 감도 (조용한 환경에 적합)' :
+                 microphoneGain <= 0.6 ? '보통 감도 (일반적인 환경에 적합)' :
+                 '높은 감도 (시끄러운 환경에 적합)'}
+              </div>
+            </div>
+          </div>
+
           {/* 마이크 테스트 */}
           <div className="space-y-3">
             <h3 className="text-lg font-medium text-gray-800">마이크 테스트</h3>
@@ -242,14 +273,14 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div 
                   className={`h-3 rounded-full transition-all duration-100 ${
-                    volume > 30 ? 'bg-green-500' : volume > 10 ? 'bg-yellow-500' : volume > 0 ? 'bg-orange-500' : 'bg-red-500'
+                    volume > 15 ? 'bg-green-500' : volume > 5 ? 'bg-yellow-500' : volume > 0 ? 'bg-orange-500' : 'bg-red-500'
                   }`}
                   style={{ width: `${Math.min(volume, 100)}%` }}
                 ></div>
               </div>
               <div className="text-xs text-gray-500">
-                {volume > 30 ? '음성이 잘 감지되고 있습니다' : 
-                 volume > 10 ? '음성이 약하게 감지되고 있습니다' : 
+                {volume > 15 ? '음성이 잘 감지되고 있습니다' : 
+                 volume > 5 ? '음성이 약하게 감지되고 있습니다' : 
                  volume > 0 ? '음성이 매우 약하게 감지되고 있습니다' : 
                  '음성이 감지되지 않습니다'}
               </div>
@@ -333,9 +364,10 @@ export default function MicrophoneSettings({ onClose }: MicrophoneSettingsProps)
           <div className="bg-blue-50 rounded-lg p-4">
             <h4 className="font-medium text-blue-800 mb-2">사용 안내</h4>
             <div className="text-sm text-blue-700 space-y-1">
-              <p>• 마이크 테스트를 통해 음성 입력이 정상적으로 작동하는지 확인할 수 있습니다</p>
-              <p>• 음성 레벨이 20% 이상이면 정상적으로 인식됩니다</p>
-              <p>• 음성 테스트로 스피커 출력을 확인할 수 있습니다</p>
+              <p>• 마이크 게인을 조정하여 음성 인식 감도를 조절할 수 있습니다</p>
+              <p>• 음성 레벨이 15% 이상이면 정상적으로 인식됩니다</p>
+              <p>• 낮은 감도(30% 이하)는 조용한 환경에 적합합니다</p>
+              <p>• 마이크 테스트를 통해 최적 설정을 찾아보세요</p>
               <p>• HTTPS 환경에서만 마이크 접근이 가능합니다</p>
             </div>
           </div>

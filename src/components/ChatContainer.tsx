@@ -1,35 +1,46 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import VoiceInputButton from './VoiceInputButton';
+import { SettingsPanel } from './SettingsPanel';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatContainerProps {
   onProblemDetected: () => void;
   onOpenSettings: () => void;
-  onOpenVoice: () => void;
   onToggleSidebar: () => void;
   onVoiceTranscript: (transcript: string) => void;
   onFarmingTTS: (text: string) => void;
   isBackendConnected: boolean;
-  isVoiceServiceConnected: boolean;
   isSidebarOpen: boolean;
-  onLayoutChange?: (mode: number) => void;
-  currentLayout?: number;
 }
 
 export default function ChatContainer({
   onProblemDetected,
   onOpenSettings,
-  onOpenVoice,
   onToggleSidebar,
   onVoiceTranscript,
   onFarmingTTS,
   isBackendConnected,
-  isVoiceServiceConnected,
-  isSidebarOpen,
-  onLayoutChange,
-  currentLayout
+  isSidebarOpen
 }: ChatContainerProps) {
+  const { user } = useAuth();
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setShowSettingsDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -141,7 +152,7 @@ export default function ChatContainer({
   return (
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* 사이드바 토글 버튼 */}
@@ -163,61 +174,27 @@ export default function ChatContainer({
           </div>
           
           <div className="flex items-center space-x-2">
-            {/* 레이아웃 전환 버튼 */}
-            {onLayoutChange && (
-              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => onLayoutChange(1)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 1 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="채팅내역 + 문제 + 채팅"
-                >
-                  3패널
-                </button>
-                <button
-                  onClick={() => onLayoutChange(2)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 2 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="문제 + 채팅"
-                >
-                  2패널
-                </button>
-                <button
-                  onClick={() => onLayoutChange(3)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 3 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="채팅만"
-                >
-                  1패널
-                </button>
-              </div>
-            )}
-            
-            {/* 음성 패널 버튼 */}
-            <button
-              onClick={onOpenVoice}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              title="음성 패널"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
             
             {/* 설정 버튼 */}
-            <button
-              onClick={onOpenSettings}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              title="설정"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                title="설정"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              
+              {/* 설정 드롭다운 */}
+              <SettingsPanel
+                isOpen={showSettingsDropdown}
+                onClose={() => setShowSettingsDropdown(false)}
+                isBackendConnected={isBackendConnected}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -226,7 +203,7 @@ export default function ChatContainer({
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md">
+            <div className="text-center max-w-md mt-20">
               <div className="mb-4">
                 <img 
                   src="/FT-logo.png" 
@@ -234,7 +211,9 @@ export default function ChatContainer({
                   className="w-24 h-24 mx-auto object-contain"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">안녕하세요! FT입니다</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+                안녕하세요! {user ? `${user.name}님` : ''} FT입니다
+              </h3>
               <p className="text-gray-600 mb-6 text-center">
                 농사와 정보처리기사 관련 질문에 답변해드릴 수 있습니다.
               </p>
@@ -281,14 +260,14 @@ export default function ChatContainer({
 
       {/* 입력 영역 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="flex space-x-3">
+        <div className="flex items-center space-x-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="질문을 입력하세요..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="flex-1 px-2 py-2 focus:outline-none text-sm"
             disabled={isLoading || !isBackendConnected}
           />
           
@@ -301,7 +280,7 @@ export default function ChatContainer({
           <button
             onClick={sendMessage}
             disabled={isLoading || !message.trim() || !isBackendConnected}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
           >
             전송
           </button>
