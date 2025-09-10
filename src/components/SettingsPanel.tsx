@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoginModal } from './LoginModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { FrontendVoiceService } from '../services/frontendVoiceService';
@@ -17,13 +17,108 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
   const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [voiceTestResult, setVoiceTestResult] = useState<string>('');
   const [isTestingTTS, setIsTestingTTS] = useState(false);
+  const [microphoneDevices, setMicrophoneDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicrophone, setSelectedMicrophone] = useState<string>('');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceLevel, setVoiceLevel] = useState(0);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [microphone, setMicrophone] = useState<MediaStreamAudioSourceNode | null>(null);
   const { user, logout } = useAuth();
+
+  // 마이크 장치 목록 가져오기
+  const getMicrophoneDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const microphones = devices.filter(device => device.kind === 'audioinput');
+      setMicrophoneDevices(microphones);
+      if (microphones.length > 0 && !selectedMicrophone) {
+        setSelectedMicrophone(microphones[0].deviceId);
+      }
+    } catch (error) {
+      console.error('마이크 장치를 가져올 수 없습니다:', error);
+    }
+  };
+
+  // 음성 레벨 모니터링 시작
+  const startVoiceLevelMonitoring = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedMicrophone ? { deviceId: { exact: selectedMicrophone } } : true
+      });
+
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyserNode = audioCtx.createAnalyser();
+      const microphoneNode = audioCtx.createMediaStreamSource(stream);
+      
+      analyserNode.fftSize = 256;
+      microphoneNode.connect(analyserNode);
+      
+      setAudioContext(audioCtx);
+      setAnalyser(analyserNode);
+      setMicrophone(microphoneNode);
+      setIsListening(true);
+
+      // 음성 레벨 업데이트
+      const updateVoiceLevel = () => {
+        if (analyserNode && isListening) {
+          const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+          analyserNode.getByteFrequencyData(dataArray);
+          
+          // 평균 레벨 계산
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          setVoiceLevel(average);
+          
+          requestAnimationFrame(updateVoiceLevel);
+        }
+      };
+      
+      updateVoiceLevel();
+    } catch (error) {
+      console.error('음성 레벨 모니터링을 시작할 수 없습니다:', error);
+      setVoiceTestResult('마이크 접근 권한이 필요합니다.');
+    }
+  };
+
+  // 음성 레벨 모니터링 중지
+  const stopVoiceLevelMonitoring = () => {
+    if (microphone) {
+      microphone.disconnect();
+    }
+    if (audioContext) {
+      audioContext.close();
+    }
+    setIsListening(false);
+    setVoiceLevel(0);
+    setAudioContext(null);
+    setAnalyser(null);
+    setMicrophone(null);
+  };
+
+  // 컴포넌트 마운트 시 마이크 장치 가져오기
+  useEffect(() => {
+    if (showVoiceTest) {
+      getMicrophoneDevices();
+    }
+  }, [showVoiceTest]);
+
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      stopVoiceLevelMonitoring();
+    };
+  }, []);
 
   // 음성 인식 테스트
   const testVoiceRecognition = async () => {
     try {
       setIsTestingVoice(true);
       setVoiceTestResult('');
+      
+      // 음성 레벨 모니터링이 실행 중이 아니면 시작
+      if (!isListening) {
+        await startVoiceLevelMonitoring();
+      }
       
       const response = await FrontendVoiceService.speechToTextWebSpeech('ko-KR');
       
@@ -40,23 +135,53 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
     }
   };
 
-  // 음성 합성 테스트
+  // TTS 테스트 (Web Speech API 사용)
   const testVoiceSynthesis = async () => {
     try {
       setIsTestingTTS(true);
+      setVoiceTestResult('');
       
-      const testText = '안녕하세요! 음성 합성 테스트입니다.';
-      const response = await FrontendVoiceService.textToSpeech(testText, 'ko-KR');
-      
-      if (response.success) {
-        setVoiceTestResult('음성 합성 테스트가 완료되었습니다.');
-      } else {
-        setVoiceTestResult('음성 합성에 실패했습니다.');
+      // Web Speech API 지원 확인
+      if (!('speechSynthesis' in window)) {
+        throw new Error('이 브라우저는 Web Speech API를 지원하지 않습니다.');
       }
+
+      const testText = '안녕하세요! TTS 테스트입니다.';
+      
+      // Web Speech API로 직접 TTS 실행
+      const utterance = new SpeechSynthesisUtterance(testText);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // 한국어 음성 선택 (가능한 경우)
+      const voices = speechSynthesis.getVoices();
+      const koreanVoice = voices.find(voice => 
+        voice.lang.startsWith('ko') || voice.name.includes('Korean')
+      );
+      if (koreanVoice) {
+        utterance.voice = koreanVoice;
+      }
+
+      // TTS 완료/오류 처리
+      utterance.onend = () => {
+        setVoiceTestResult('TTS 테스트가 완료되었습니다.');
+        setIsTestingTTS(false);
+      };
+
+      utterance.onerror = (event) => {
+        console.error('TTS 오류:', event);
+        setVoiceTestResult(`TTS 오류: ${event.error}`);
+        setIsTestingTTS(false);
+      };
+
+      // TTS 시작
+      speechSynthesis.speak(utterance);
+      
     } catch (error) {
-      console.error('음성 합성 테스트 오류:', error);
+      console.error('TTS 테스트 오류:', error);
       setVoiceTestResult(`TTS 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
-    } finally {
       setIsTestingTTS(false);
     }
   };
@@ -200,6 +325,54 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <h3 className="text-sm font-medium text-gray-900 mb-3">음성 기능 테스트</h3>
           
+          {/* 마이크 장치 선택 */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-gray-700 mb-2">마이크 장치</label>
+            <select
+              value={selectedMicrophone}
+              onChange={(e) => setSelectedMicrophone(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {microphoneDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `마이크 ${device.deviceId.slice(0, 8)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 음성 레벨 모니터링 */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-gray-700">음성 레벨</label>
+              <button
+                onClick={isListening ? stopVoiceLevelMonitoring : startVoiceLevelMonitoring}
+                className={`px-3 py-1 text-xs rounded-md ${
+                  isListening 
+                    ? 'bg-red-500 text-white hover:bg-red-600' 
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                }`}
+              >
+                {isListening ? '음성 레벨 중지' : '음성 레벨 시작'}
+              </button>
+            </div>
+            
+            {/* 음성 레벨 바 */}
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <div 
+                className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                style={{ width: `${Math.min(voiceLevel * 2, 100)}%` }}
+              ></div>
+            </div>
+            
+            {/* 레벨 수치 표시 */}
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>조용함</span>
+              <span className="font-mono">{Math.round(voiceLevel)}</span>
+              <span>시끄러움</span>
+            </div>
+          </div>
+
           {/* 음성 인식 테스트 */}
           <div className="mb-4">
             <button
@@ -210,14 +383,14 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
               {isTestingVoice ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>음성 인식 중...</span>
+                  <span>음성 인식 테스트 중...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
                   </svg>
-                  <span>음성 인식 테스트</span>
+                  <span>음성 인식 테스트 시작</span>
                 </>
               )}
             </button>
@@ -233,14 +406,14 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
               {isTestingTTS ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>음성 합성 중...</span>
+                  <span>TTS 처리 중...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
                   </svg>
-                  <span>음성 합성 테스트</span>
+                  <span>TTS 테스트</span>
                 </>
               )}
             </button>

@@ -8,27 +8,21 @@ import { useAuth } from '@/contexts/AuthContext';
 interface ChatContainerProps {
   onProblemDetected: () => void;
   onOpenSettings: () => void;
-  onOpenVoice: () => void;
   onToggleSidebar: () => void;
   onVoiceTranscript: (transcript: string) => void;
   onFarmingTTS: (text: string) => void;
   isBackendConnected: boolean;
   isSidebarOpen: boolean;
-  onLayoutChange?: (mode: number) => void;
-  currentLayout?: number;
 }
 
 export default function ChatContainer({
   onProblemDetected,
   onOpenSettings,
-  onOpenVoice,
   onToggleSidebar,
   onVoiceTranscript,
   onFarmingTTS,
   isBackendConnected,
-  isSidebarOpen,
-  onLayoutChange,
-  currentLayout
+  isSidebarOpen
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -158,7 +152,7 @@ export default function ChatContainer({
   return (
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <div className="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* 사이드바 토글 버튼 */}
@@ -180,49 +174,6 @@ export default function ChatContainer({
           </div>
           
           <div className="flex items-center space-x-2">
-            {/* 레이아웃 전환 버튼 */}
-            {onLayoutChange && (
-              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => onLayoutChange(1)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 1 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="채팅내역 + 문제 + 채팅"
-                >
-                  3패널
-                </button>
-                <button
-                  onClick={() => onLayoutChange(2)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 2 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="문제 + 채팅"
-                >
-                  2패널
-                </button>
-                <button
-                  onClick={() => onLayoutChange(3)}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    currentLayout === 3 ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                  title="채팅만"
-                >
-                  1패널
-                </button>
-              </div>
-            )}
-            
-            {/* 음성 패널 버튼 */}
-            <button
-              onClick={onOpenVoice}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              title="음성 패널"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
             
             {/* 설정 버튼 */}
             <div className="relative" ref={settingsRef}>
@@ -252,7 +203,7 @@ export default function ChatContainer({
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md">
+            <div className="text-center max-w-md mt-20">
               <div className="mb-4">
                 <img 
                   src="/FT-logo.png" 
@@ -309,14 +260,14 @@ export default function ChatContainer({
 
       {/* 입력 영역 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="flex space-x-3">
+        <div className="flex items-center space-x-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="질문을 입력하세요..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="flex-1 px-2 py-2 focus:outline-none text-sm"
             disabled={isLoading || !isBackendConnected}
           />
           
@@ -329,7 +280,7 @@ export default function ChatContainer({
           <button
             onClick={sendMessage}
             disabled={isLoading || !message.trim() || !isBackendConnected}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
           >
             전송
           </button>

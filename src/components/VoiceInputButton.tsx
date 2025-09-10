@@ -129,16 +129,15 @@ export default function VoiceInputButton({ onTranscript, disabled = false }: Voi
           onClick={toggleRecording}
           disabled={disabled || isProcessing || isSupported === false}
           className={`
-            relative w-12 h-12 rounded-full flex items-center justify-center
-            transition-all duration-200 transform hover:scale-105
+            relative w-8 h-8 flex items-center justify-center
+            transition-colors duration-200
             ${isListening 
-              ? 'bg-red-500 text-white animate-pulse' 
+              ? 'text-red-500' 
               : isProcessing
-              ? 'bg-blue-500 text-white animate-pulse' 
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
+              ? 'text-blue-500' 
+              : 'text-gray-600 hover:text-gray-800'
             }
             ${disabled || isProcessing || isSupported === false ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-            shadow-lg hover:shadow-xl
           `}
           title={
             isSupported === false 
@@ -150,17 +149,9 @@ export default function VoiceInputButton({ onTranscript, disabled = false }: Voi
               : '음성 입력 시작'
           }
         >
-          {isListening ? (
-            <div className="w-6 h-6 flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
-            </div>
-          ) : isProcessing ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-            </svg>
-          )}
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
         </button>
 
       </div>

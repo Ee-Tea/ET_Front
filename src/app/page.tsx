@@ -42,10 +42,8 @@ export default function Home() {
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   
   // 사이드바 토글 상태
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // 레이아웃 모드 (1: 채팅내역+문제+채팅, 2: 문제+채팅, 3: 채팅만)
-  const [layoutMode, setLayoutMode] = useState(1);
   
   // 백엔드 연결 상태
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -338,115 +336,55 @@ export default function Home() {
   return (
     <div className="h-screen w-screen bg-gray-100 p-4" suppressHydrationWarning>
       <div className="h-full flex gap-4" suppressHydrationWarning>
-        {/* Frame 1: 채팅내역 + 문제 + 채팅 */}
-        {layoutMode === 1 && (
-          <>
-            {/* 왼쪽 채팅내역 컨테이너 */}
-            <div className="w-1/5 min-w-80 h-full" suppressHydrationWarning>
-              <ChatHistoryContainer
-                testSessions={testSessions}
-                setTestSessions={setTestSessions}
-                currentSessionId={currentSessionId}
-                setCurrentSessionId={setCurrentSessionId}
-                onNewChat={() => window.location.reload()}
-                isBackendConnected={isBackendConnected}
-              />
-            </div>
-
-            {/* 가운데 문제 컨테이너 */}
-            <div className="w-1/3 min-w-80 h-full" suppressHydrationWarning>
-              <ProblemContainer
-                questions={parsedQuestions}
-                selectedAnswers={selectedAnswers}
-                onAnswerSelect={handleAnswerSelect}
-                onSubmit={submitAnswers}
-                isSubmitting={isSubmitting}
-                submittedAnswers={submittedAnswers}
-                showResults={showResults}
-                score={score}
-                totalQuestions={totalQuestions}
-                themeColor={themeColor}
-                gradingResults={gradingResults}
-              />
-            </div>
-
-            {/* 오른쪽 채팅 컨테이너 */}
-            <div className="flex-1 h-full" suppressHydrationWarning>
-              <ChatContainer
-                onProblemDetected={fetchRecentQuestions}
-                onOpenSettings={() => {}}
-                onOpenVoice={() => setShowVoicePanel(true)}
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                onVoiceTranscript={handleVoiceTranscript}
-                onFarmingTTS={playFarmingTTS}
-                isBackendConnected={isBackendConnected}
-                isSidebarOpen={isSidebarOpen}
-                onLayoutChange={setLayoutMode}
-                currentLayout={layoutMode}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Frame 2: 문제 + 채팅 */}
-        {layoutMode === 2 && (
-          <>
-            {/* 왼쪽 문제 컨테이너 */}
-            <div className="w-1/2 min-w-80 h-full">
-              <ProblemContainer
-                questions={parsedQuestions}
-                selectedAnswers={selectedAnswers}
-                onAnswerSelect={handleAnswerSelect}
-                onSubmit={submitAnswers}
-                isSubmitting={isSubmitting}
-                submittedAnswers={submittedAnswers}
-                showResults={showResults}
-                score={score}
-                totalQuestions={totalQuestions}
-                themeColor={themeColor}
-                gradingResults={gradingResults}
-              />
-            </div>
-
-            {/* 오른쪽 채팅 컨테이너 */}
-            <div className="flex-1 h-full" suppressHydrationWarning>
-              <ChatContainer
-                onProblemDetected={fetchRecentQuestions}
-                onOpenSettings={() => {}}
-                onOpenVoice={() => setShowVoicePanel(true)}
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                onVoiceTranscript={handleVoiceTranscript}
-                onFarmingTTS={playFarmingTTS}
-                isBackendConnected={isBackendConnected}
-                isSidebarOpen={isSidebarOpen}
-                onLayoutChange={setLayoutMode}
-                currentLayout={layoutMode}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Frame 3: 채팅만 */}
-        {layoutMode === 3 && (
-          <div className="w-full h-full">
-            <ChatContainer
-              onProblemDetected={fetchRecentQuestions}
-              onOpenSettings={() => {}}
-              onOpenVoice={() => setShowVoicePanel(true)}
-              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-              onVoiceTranscript={handleVoiceTranscript}
-              onFarmingTTS={playFarmingTTS}
+        {/* 왼쪽 채팅내역 컨테이너 - 사이드바가 열려있을 때만 표시 */}
+        {isSidebarOpen && (
+          <div className="w-1/5 min-w-80 h-full" suppressHydrationWarning>
+            <ChatHistoryContainer
+              testSessions={testSessions}
+              setTestSessions={setTestSessions}
+              currentSessionId={currentSessionId}
+              setCurrentSessionId={setCurrentSessionId}
+              onNewChat={() => window.location.reload()}
               isBackendConnected={isBackendConnected}
-              isSidebarOpen={isSidebarOpen}
-              onLayoutChange={setLayoutMode}
-              currentLayout={layoutMode}
             />
           </div>
         )}
+
+        {/* 가운데 문제 컨테이너 - 문제가 있을 때만 표시 */}
+        {parsedQuestions.length > 0 && (
+          <div className={`${isSidebarOpen ? 'w-1/3' : 'w-1/2'} min-w-80 h-full`} suppressHydrationWarning>
+            <ProblemContainer
+              questions={parsedQuestions}
+              selectedAnswers={selectedAnswers}
+              onAnswerSelect={handleAnswerSelect}
+              onSubmit={submitAnswers}
+              isSubmitting={isSubmitting}
+              submittedAnswers={submittedAnswers}
+              showResults={showResults}
+              score={score}
+              totalQuestions={totalQuestions}
+              themeColor={themeColor}
+              gradingResults={gradingResults}
+            />
+          </div>
+        )}
+
+        {/* 오른쪽 채팅 컨테이너 */}
+        <div className="flex-1 h-full" suppressHydrationWarning>
+          <ChatContainer
+            onProblemDetected={fetchRecentQuestions}
+            onOpenSettings={() => {}}
+            onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+            onVoiceTranscript={handleVoiceTranscript}
+            onFarmingTTS={playFarmingTTS}
+            isBackendConnected={isBackendConnected}
+            isSidebarOpen={isSidebarOpen}
+          />
+        </div>
       </div>
 
-      {/* 문제 컨테이너 (슬라이드 인) */}
-      {showProblemContainer && (
+      {/* 문제 컨테이너 (슬라이드 인) - 문제가 있을 때만 표시 */}
+      {showProblemContainer && parsedQuestions.length > 0 && (
         <ProblemContainer
           questions={parsedQuestions}
           selectedAnswers={selectedAnswers}
