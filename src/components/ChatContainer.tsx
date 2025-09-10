@@ -6,13 +6,16 @@ import { SettingsPanel } from './SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatContainerProps {
-  onProblemDetected: () => void;
+  onProblemDetected: (userMessage?: string) => void;
   onOpenSettings: () => void;
   onToggleSidebar: () => void;
   onVoiceTranscript: (transcript: string) => void;
   onFarmingTTS: (text: string) => void;
   isBackendConnected: boolean;
   isSidebarOpen: boolean;
+  onLayoutExpansion?: () => void;
+  message?: string;
+  setMessage?: (message: string) => void;
 }
 
 export default function ChatContainer({
@@ -22,7 +25,10 @@ export default function ChatContainer({
   onVoiceTranscript,
   onFarmingTTS,
   isBackendConnected,
-  isSidebarOpen
+  isSidebarOpen,
+  onLayoutExpansion,
+  message: externalMessage,
+  setMessage: externalSetMessage
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -41,12 +47,90 @@ export default function ChatContainer({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(externalMessage || '');
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 외부에서 받은 message 값이 변경될 때 내부 상태 업데이트
+  useEffect(() => {
+    if (externalMessage !== undefined) {
+      setMessage(externalMessage);
+    }
+  }, [externalMessage]);
+
+  // 자동 전송 이벤트 리스너
+  useEffect(() => {
+    const handleAutoSend = (event: CustomEvent) => {
+      const { message: autoMessage } = event.detail;
+      if (autoMessage && autoMessage.trim()) {
+        setMessage(autoMessage);
+        // 메시지 설정 후 자동 전송을 위한 플래그 설정
+        setTimeout(() => {
+          // 직접 sendMessage 로직 실행
+          if (autoMessage.trim() && !isLoading && isBackendConnected) {
+            const sendAutoMessage = async () => {
+              setIsLoading(true);
+              const newMessage = { role: 'user', content: autoMessage };
+              setMessages(prev => [...prev, newMessage]);
+              
+              try {
+                const response = await fetch('http://localhost:8000/chat', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    message: autoMessage,
+                    session_id: null
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+                setMessage('');
+                
+                // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
+                // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
+                if (data.response && !autoMessage.includes('채점') && (
+                  data.response.includes('문제') && (
+                    data.response.includes('생성') || 
+                    data.response.includes('다음 중') ||
+                    data.response.includes('정답:') ||
+                    data.response.includes('해설:')
+                  )
+                )) {
+                  setTimeout(() => onProblemDetected(autoMessage), 1000);
+                }
+              } catch (error) {
+                console.error('Error:', error);
+                setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 오류가 발생했습니다.' }]);
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            sendAutoMessage();
+          }
+        }, 50);
+      }
+    };
+
+    window.addEventListener('autoSendMessage', handleAutoSend as EventListener);
+    return () => {
+      window.removeEventListener('autoSendMessage', handleAutoSend as EventListener);
+    };
+  }, [isLoading, isBackendConnected]);
+
   const sendMessage = async () => {
     if (!message.trim()) return;
+
+    // 레이아웃 확장 트리거 (첫 메시지 전송 시)
+    if (onLayoutExpansion && messages.length === 0) {
+      onLayoutExpansion();
+    }
 
     // clear 명령어 감지
     if (message.trim().toLowerCase() === "clear") {
@@ -86,8 +170,18 @@ export default function ChatContainer({
         onFarmingTTS(data.response);
       }
 
-      // LLM 응답 완료 후 문제 목록 새로고침
-      setTimeout(() => onProblemDetected(), 1000);
+      // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
+      // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
+      if (data.response && !message.includes('채점') && (
+        data.response.includes('문제') && (
+          data.response.includes('생성') || 
+          data.response.includes('다음 중') ||
+          data.response.includes('정답:') ||
+          data.response.includes('해설:')
+        )
+      )) {
+        setTimeout(() => onProblemDetected(message), 1000);
+      }
     } catch (error) {
       console.error("백엔드 API 호출 실패:", error);
       const errorMessage = {
@@ -260,30 +354,42 @@ export default function ChatContainer({
 
       {/* 입력 영역 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="flex items-center space-x-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
+        <div className="bg-white rounded-lg p-4 flex items-center space-x-3">
+          {/* FT 로고 */}
+          <div className="flex-shrink-0">
+            <img src="/FT-logo.png" alt="FT" className="h-6 w-6" />
+          </div>
+          
+          {/* 입력 필드 */}
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="질문을 입력하세요..."
-            className="flex-1 px-2 py-2 focus:outline-none text-sm"
+            placeholder="질문을 입력해주세요."
+            className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
             disabled={isLoading || !isBackendConnected}
           />
           
-          {/* 음성 입력 버튼 */}
-          <VoiceInputButton
-            onTranscript={handleVoiceTranscript}
-            disabled={isLoading || !isBackendConnected}
-          />
-          
-          <button
-            onClick={sendMessage}
-            disabled={isLoading || !message.trim() || !isBackendConnected}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
-          >
-            전송
-          </button>
+          {/* 오른쪽 아이콘들 */}
+          <div className="flex items-center space-x-2">
+            {/* 음성 버튼 */}
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={isLoading || !isBackendConnected}
+            />
+            
+            {/* 전송 버튼 */}
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !message.trim() || !isBackendConnected}
+              className="bg-green-500 text-white rounded-lg p-2 hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
         </div>
         
         {/* 연결 상태에 따른 안내 */}
