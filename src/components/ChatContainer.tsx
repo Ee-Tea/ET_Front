@@ -5,6 +5,42 @@ import VoiceInputButton from './VoiceInputButton';
 import { SettingsPanel } from './SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
 
+  // 정처기 관련 문제 생성 요청 감지 함수
+const isProblemGenerationRequest = (message: string) => {
+  const lowerMessage = message.toLowerCase();
+  
+  // 정처기 관련 키워드들
+  const jpkiKeywords = [
+    '정처기', '정보처리기사', '정보처리', 'jpki', 'jpki시험', 'jpki문제',
+    '소프트웨어설계', '소프트웨어 설계', '데이터베이스', '데이터베이스구축',
+    '시스템분석설계', '시스템 분석 설계', '프로그래밍언어', '프로그래밍 언어',
+    '정보시스템구축', '정보시스템 구축', 'it기술', 'it 기술'
+  ];
+  
+  // 문제 생성 요청 키워드들
+  const problemGenerationKeywords = [
+    '문제 만들어줘', '문제 생성해줘', '문제 만들어', '문제 생성해',
+    '문제 만들어주세요', '문제 생성해주세요', '문제 만들어줄래',
+    '문제 생성해줄래', '문제 만들어줄 수 있어', '문제 생성해줄 수 있어',
+    '문제 만들어주실 수 있어', '문제 생성해주실 수 있어',
+    '퀴즈 만들어줘', '퀴즈 생성해줘', '시험문제 만들어줘', '시험문제 생성해줘',
+    '문제집 만들어줘', '문제은행 만들어줘'
+  ];
+  
+  // 정처기 관련 키워드가 있는지 확인
+  const hasJpkiKeyword = jpkiKeywords.some(keyword => 
+    lowerMessage.includes(keyword.toLowerCase())
+  );
+  
+  // 문제 생성 요청인지 확인
+  const hasGenerationRequest = problemGenerationKeywords.some(keyword => 
+    lowerMessage.includes(keyword.toLowerCase())
+  );
+  
+  // 정처기 관련 키워드가 있고 문제 생성 요청이 있는 경우만 true 반환
+  return hasJpkiKeyword && hasGenerationRequest;
+};
+
 interface ChatContainerProps {
   onProblemDetected: (userMessage?: string) => void;
   onOpenSettings: () => void;
@@ -73,6 +109,12 @@ export default function ChatContainer({
               const newMessage = { role: 'user', content: autoMessage };
               setMessages(prev => [...prev, newMessage]);
               
+              // 문제 생성 요청인지 확인하고 즉시 문제 컨테이너 표시
+              const isProblemRequest = isProblemGenerationRequest(autoMessage);
+              if (isProblemRequest) {
+                setTimeout(() => onProblemDetected(autoMessage), 100);
+              }
+              
               try {
                 const response = await fetch('http://localhost:8000/chat', {
                   method: 'POST',
@@ -93,9 +135,9 @@ export default function ChatContainer({
                 setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
                 setMessage('');
                 
-                // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
-                // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
-                if (data.response && !autoMessage.includes('채점') && (
+                // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
+                const isProblemRequest = isProblemGenerationRequest(autoMessage);
+                if (isProblemRequest && data.response && !autoMessage.includes('채점') && (
                   data.response.includes('문제') && (
                     data.response.includes('생성') || 
                     data.response.includes('다음 중') ||
@@ -143,6 +185,12 @@ export default function ChatContainer({
     setMessage("");
     setIsLoading(true);
 
+    // 문제 생성 요청인지 확인하고 즉시 문제 컨테이너 표시
+    const isProblemRequest = isProblemGenerationRequest(message);
+    if (isProblemRequest) {
+      setTimeout(() => onProblemDetected(message), 100);
+    }
+
     try {
       const response = await fetch("http://localhost:8000/chat", {
         method: "POST",
@@ -170,9 +218,9 @@ export default function ChatContainer({
         onFarmingTTS(data.response);
       }
 
-      // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
-      // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
-      if (data.response && !message.includes('채점') && (
+      // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
+      const isProblemRequest = isProblemGenerationRequest(message);
+      if (isProblemRequest && data.response && !message.includes('채점') && (
         data.response.includes('문제') && (
           data.response.includes('생성') || 
           data.response.includes('다음 중') ||
@@ -217,8 +265,7 @@ export default function ChatContainer({
       };
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 문제 목록도 새로고침
-      setTimeout(() => onProblemDetected(), 1000);
+      // clear 명령어는 문제 생성 요청이 아니므로 문제 목록 새로고침하지 않음
     } catch (error) {
       console.error("Clear 명령 실행 실패:", error);
       const errorMessage = {

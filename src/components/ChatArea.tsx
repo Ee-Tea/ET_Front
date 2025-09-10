@@ -4,6 +4,42 @@ import React, { useState, useEffect, useRef } from 'react';
 import VoiceInputButton from './VoiceInputButton';
 import { SettingsPanel } from './SettingsPanel';
 
+// 정처기 관련 문제 생성 요청 감지 함수
+const isProblemGenerationRequest = (message: string) => {
+  const lowerMessage = message.toLowerCase();
+  
+  // 정처기 관련 키워드들
+  const jpkiKeywords = [
+    '정처기', '정보처리기사', '정보처리', 'jpki', 'jpki시험', 'jpki문제',
+    '소프트웨어설계', '소프트웨어 설계', '데이터베이스', '데이터베이스구축',
+    '시스템분석설계', '시스템 분석 설계', '프로그래밍언어', '프로그래밍 언어',
+    '정보시스템구축', '정보시스템 구축', 'it기술', 'it 기술'
+  ];
+  
+  // 문제 생성 요청 키워드들
+  const problemGenerationKeywords = [
+    '문제 만들어줘', '문제 생성해줘', '문제 만들어', '문제 생성해',
+    '문제 만들어주세요', '문제 생성해주세요', '문제 만들어줄래',
+    '문제 생성해줄래', '문제 만들어줄 수 있어', '문제 생성해줄 수 있어',
+    '문제 만들어주실 수 있어', '문제 생성해주실 수 있어',
+    '퀴즈 만들어줘', '퀴즈 생성해줘', '시험문제 만들어줘', '시험문제 생성해줘',
+    '문제집 만들어줘', '문제은행 만들어줘'
+  ];
+  
+  // 정처기 관련 키워드가 있는지 확인
+  const hasJpkiKeyword = jpkiKeywords.some(keyword => 
+    lowerMessage.includes(keyword.toLowerCase())
+  );
+  
+  // 문제 생성 요청인지 확인
+  const hasGenerationRequest = problemGenerationKeywords.some(keyword => 
+    lowerMessage.includes(keyword.toLowerCase())
+  );
+  
+  // 정처기 관련 키워드가 있고 문제 생성 요청이 있는 경우만 true 반환
+  return hasJpkiKeyword && hasGenerationRequest;
+};
+
 interface ChatAreaProps {
   onProblemDetected: () => void;
   onOpenSettings: () => void;
@@ -90,8 +126,11 @@ export default function ChatArea({
         onFarmingTTS(data.response);
       }
 
-      // LLM 응답 완료 후 문제 목록 새로고침
-      setTimeout(() => onProblemDetected(), 1000);
+      // 문제 생성 요청인지 확인하고 문제 목록 새로고침
+      const isProblemRequest = isProblemGenerationRequest(message);
+      if (isProblemRequest) {
+        setTimeout(() => onProblemDetected(), 1000);
+      }
     } catch (error) {
       console.error("백엔드 API 호출 실패:", error);
       const errorMessage = {
