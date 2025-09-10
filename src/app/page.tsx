@@ -22,13 +22,14 @@ export default function Home() {
   // 문제 관련 상태
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [selectedAnswers, setSelectedAnswers] = useState<{[key: string]: string}>({});
-  const [showProblemContainer, setShowProblemContainer] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gradingResults, setGradingResults] = useState<{[key: string]: any}>({});
   const [submittedAnswers, setSubmittedAnswers] = useState<{[key: number]: number}>({});
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const [showProblemAfterSubmit, setShowProblemAfterSubmit] = useState(false);
+  const [isProblemRequest, setIsProblemRequest] = useState(false);
   
   // PDF 관련 상태
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState({
@@ -51,6 +52,12 @@ export default function Home() {
   const [miniMessage, setMiniMessage] = useState('');
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  
+  // 예시 질문들
+  const exampleQuestions = {
+    agriculture: "오이에는 어떤 병해충이 있어?",
+    it: "소프트웨어 설계 3문제 만들어줘"
+  };
   
   
   // 백엔드 연결 상태
@@ -161,6 +168,21 @@ export default function Home() {
     checkPdfGenerationStatus();
   }, []);
 
+  // 문제 생성 요청 감지 함수
+  const isProblemGenerationRequest = (message: string) => {
+    const problemKeywords = [
+      '문제 만들어줘', '문제 생성해줘', '문제 만들어', '문제 생성해',
+      '문제 만들어주세요', '문제 생성해주세요', '문제 만들어줄래',
+      '문제 생성해줄래', '문제 만들어줄 수 있어', '문제 생성해줄 수 있어',
+      '문제 만들어주실 수 있어', '문제 생성해주실 수 있어',
+      '문제', '퀴즈', '시험문제', '문제집', '문제은행'
+    ];
+    
+    return problemKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+  };
+
   // 문제 파싱 함수
   const parseQuestions = (text: string) => {
     const questions: any[] = [];
@@ -210,7 +232,17 @@ export default function Home() {
   };
 
   // 최근 질문 가져오기
-  const fetchRecentQuestions = async () => {
+  const fetchRecentQuestions = async (userMessage?: string) => {
+    // 이미 문제가 표시 중이면 중복 호출 방지
+    if (parsedQuestions.length > 0) {
+      return;
+    }
+
+    // 문제 생성 요청이 아니면 문제 컨테이너를 표시하지 않음
+    if (userMessage && !isProblemGenerationRequest(userMessage)) {
+      return;
+    }
+
     try {
       const response = await fetch(`http://localhost:8000/recent-questions`, {
         method: "GET",
@@ -219,14 +251,19 @@ export default function Home() {
 
       if (response.ok) {
         const data = await response.json();
-        setParsedQuestions(data.questions || []);
-        if (data.questions && data.questions.length > 0) {
-          setShowProblemContainer(true);
+        const newQuestions = data.questions || [];
+        
+        // 새로운 문제가 있을 때만 상태 업데이트하고 바로 표시
+        if (newQuestions.length > 0) {
+          setParsedQuestions(newQuestions);
+          setShowProblemAfterSubmit(true); // 문제 생성 시 바로 표시
+          setIsProblemRequest(true); // 문제 생성 요청임을 표시
         }
       } else {
         setParsedQuestions([]);
       }
     } catch (error) {
+      console.error('문제 가져오기 실패:', error);
       setParsedQuestions([]);
     }
   };
@@ -237,8 +274,8 @@ export default function Home() {
     
     setIsSubmitting(true);
     try {
-      const answers = parsedQuestions.map(q => {
-        const questionId = `question-${q.id}`;
+      const answers = parsedQuestions.map((q, index) => {
+        const questionId = `question-${q.id || index}`;
         const selectedAnswer = selectedAnswers[questionId];
         const extractedAnswer = selectedAnswer ? selectedAnswer.match(/^\s*(\d+)\./)?.[1] : null;
         return extractedAnswer || "1";
@@ -246,24 +283,28 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
+      // 채점 요청을 별도로 처리하여 채팅 메시지에 추가하지 않음
       const response = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: query,
           user_id: "frontend_user",
-          chat_id: "frontend_chat",
+          chat_id: "frontend_grading",  // 별도 채팅 ID 사용
+          is_grading: true
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
+        let newGradingResults: {[key: string]: any} = {};
+        
         if (data.grading_results) {
-          setGradingResults(data.grading_results);
+          newGradingResults = data.grading_results;
         } else {
-          const newGradingResults: {[key: string]: any} = {};
-          parsedQuestions.forEach((q) => {
-            const questionId = `question-${q.id}`;
+          // 백엔드에서 채점 결과가 없으면 직접 계산
+          parsedQuestions.forEach((q, index) => {
+            const questionId = `question-${q.id || index}`;
             const selectedAnswer = selectedAnswers[questionId];
             const correctAnswer = q.correctAnswer;
             const extractedUserAnswer = selectedAnswer ? selectedAnswer.match(/^\s*(\d+)\./)?.[1] : null;
@@ -271,11 +312,23 @@ export default function Home() {
             newGradingResults[questionId] = {
               isCorrect: extractedUserAnswer === correctAnswer,
               userAnswer: selectedAnswer,
-              correctAnswer: correctAnswer
+              correctAnswer: correctAnswer,
+              explanation: q.explanation || ''
             };
           });
-          setGradingResults(newGradingResults);
         }
+        
+        setGradingResults(newGradingResults);
+        
+        // 점수 계산
+        const correctCount = Object.values(newGradingResults).filter((result: any) => result.isCorrect).length;
+        const totalCount = parsedQuestions.length;
+        const calculatedScore = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+        
+        setScore(calculatedScore);
+        setTotalQuestions(totalCount);
+        setShowResults(true);
+        
       }
     } catch (error) {
       console.error('답안 제출 실패:', error);
@@ -286,7 +339,7 @@ export default function Home() {
 
   // 모든 문제에 답했는지 확인
   const isAllQuestionsAnswered = () => {
-    return parsedQuestions.length > 0 && parsedQuestions.every(q => selectedAnswers[`question-${q.id}`]);
+    return parsedQuestions.length > 0 && parsedQuestions.every((q, index) => selectedAnswers[`question-${q.id || index}`]);
   };
 
   // 답안 선택 핸들러
@@ -299,14 +352,15 @@ export default function Home() {
 
   // 문제 컨테이너 닫기
   const handleCloseProblemContainer = () => {
-        setShowProblemContainer(false);
-      setParsedQuestions([]);
+    setParsedQuestions([]);
     setSelectedAnswers({});
     setGradingResults({});
     setSubmittedAnswers({});
     setShowResults(false);
     setScore(0);
     setTotalQuestions(0);
+    setShowProblemAfterSubmit(false);
+    setIsProblemRequest(false);
   };
 
   // 음성 관련 함수들
@@ -360,6 +414,18 @@ export default function Home() {
     setMiniMessage(transcript);
   };
 
+  const handleExampleQuestionClick = (question: string) => {
+    setMessage(question);
+    setIsLayoutExpanded(true);
+    // 약간의 지연 후 자동 전송
+    setTimeout(() => {
+      const event = new CustomEvent('autoSendMessage', { 
+        detail: { message: question } 
+      });
+      window.dispatchEvent(event);
+    }, 100);
+  };
+
 
   // 로딩 중일 때
   if (isLoading) {
@@ -375,8 +441,13 @@ export default function Home() {
 
 
   return (
-    <div className={`h-screen w-screen transition-all duration-700 ease-in-out ${isLayoutExpanded ? 'p-4 bg-gray-100' : 'flex items-center justify-center'} ${hoveredCard ? 'bg-cover bg-center' : 'bg-gray-100'}`} 
-         style={hoveredCard ? { backgroundImage: `url(${hoveredCard === 'agriculture' ? '/farmer.png' : '/teacher.png'})` } : {}} 
+    <div className={`h-screen w-screen transition-all duration-1000 ease-in-out ${isLayoutExpanded ? 'p-4 bg-gray-100' : 'flex items-center justify-center'} ${!isLayoutExpanded && hoveredCard ? 'bg-cover bg-center' : 'bg-gray-100'}`} 
+         style={!isLayoutExpanded && hoveredCard ? { 
+           backgroundImage: `url(${hoveredCard === 'agriculture' ? '/farmer.png' : '/teacher.png'})`,
+           backgroundSize: 'cover',
+           backgroundPosition: 'center',
+           backgroundRepeat: 'no-repeat'
+         } : {}} 
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
@@ -401,33 +472,41 @@ export default function Home() {
               {/* 기능 카드들 */}
             <div className="grid grid-cols-2 gap-4 mb-4 w-full px-2">
               <div 
-                className="rounded-lg p-1 text-center h-32 sm:h-36 md:h-40 flex flex-col justify-center transition-transform duration-300 hover:-translate-y-2 hover:shadow-lg cursor-pointer" 
+                className="rounded-lg p-1 text-center h-32 sm:h-36 md:h-40 flex flex-col justify-center transition-all duration-500 ease-in-out hover:-translate-y-2 hover:shadow-lg cursor-pointer" 
                 style={{ backgroundColor: '#dee3e7' }}
                 onMouseEnter={() => setHoveredCard('agriculture')}
                 onMouseLeave={() => setHoveredCard(null)}
+                onClick={() => handleExampleQuestionClick(exampleQuestions.agriculture)}
               >
-                  <div className="w-8 h-8 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-8 h-8 flex items-center justify-center mx-auto mb-2">
                     <svg className="w-7 h-7 text-green-600" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75S7 8 17 8Z"/>
                     </svg>
                   </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">농업</h3>
-                  <p className="text-gray-600 text-xs">농작물 재배와 농업 기술에 대한 전문적인 조언을 제공합니다.</p>
+                  <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-700 mb-1">농업</h3>
+                  <p className="text-gray-600 text-xs sm:text-xs md:text-sm mb-2">농작물 재배와 농업 기술에 대한 전문적인 조언을 제공합니다.</p>
+                  <div className="text-xs text-gray-400">
+                    "{exampleQuestions.agriculture}"
+                  </div>
                 </div>
                 
                 <div 
-                className="rounded-lg p-1 text-center h-32 sm:h-36 md:h-40 flex flex-col justify-center transition-transform duration-300 hover:-translate-y-2 hover:shadow-lg cursor-pointer" 
+                className="rounded-lg p-1 text-center h-32 sm:h-36 md:h-40 flex flex-col justify-center transition-all duration-500 ease-in-out hover:-translate-y-2 hover:shadow-lg cursor-pointer" 
                 style={{ backgroundColor: '#dee3e7' }}
                 onMouseEnter={() => setHoveredCard('it')}
                 onMouseLeave={() => setHoveredCard(null)}
+                onClick={() => handleExampleQuestionClick(exampleQuestions.it)}
               >
-                  <div className="w-8 h-8 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-8 h-8 flex items-center justify-center mx-auto mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-7 h-7 text-gray-600">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
                     </svg>
                   </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">정보처리기사</h3>
-                  <p className="text-gray-600 text-xs">정보처리기사 시험 준비와 IT 관련 학습을 도와드립니다.</p>
+                  <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-700 mb-1">정보처리기사</h3>
+                  <p className="text-gray-600 text-xs sm:text-xs md:text-sm mb-2">정보처리기사 시험 준비와 IT 관련 학습을 도와드립니다.</p>
+                  <div className="text-xs text-gray-400">
+                    "{exampleQuestions.it}"
+                  </div>
                 </div>
                 
               </div>
@@ -457,7 +536,7 @@ export default function Home() {
                 />
                 
                 {/* 오른쪽 아이콘들 */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   {/* 음성 버튼 */}
                   <VoiceInputButton
                     onTranscript={handleMiniVoiceTranscript}
@@ -480,9 +559,10 @@ export default function Home() {
         ) : (
           /* 확장된 레이아웃 - 전체 화면 */
           <div className="h-full flex gap-4 transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95" suppressHydrationWarning>
-          {/* 왼쪽 채팅내역 컨테이너 - 사이드바가 열려있을 때만 표시 */}
+          
+          {/* 채팅 히스토리 - 문제 컨테이너가 있을 때는 왼쪽에, 없을 때는 조건부 표시 */}
           {isSidebarOpen && (
-            <div className="w-1/5 min-w-80 h-full" suppressHydrationWarning>
+            <div className={`${parsedQuestions.length > 0 && showProblemAfterSubmit ? 'w-1/4 min-w-80' : 'w-1/5 min-w-80'} h-full`} suppressHydrationWarning>
               <ChatHistoryContainer
                 testSessions={testSessions}
                 setTestSessions={setTestSessions}
@@ -494,14 +574,15 @@ export default function Home() {
             </div>
           )}
 
-          {/* 가운데 문제 컨테이너 - 문제가 있을 때만 표시 */}
-          {parsedQuestions.length > 0 && (
-            <div className={`${isSidebarOpen ? 'w-1/3' : 'w-1/2'} min-w-80 h-full`} suppressHydrationWarning>
+          {/* 문제 컨테이너 - 문제가 있을 때만 표시 */}
+          {parsedQuestions.length > 0 && showProblemAfterSubmit && (
+            <div className={`${isSidebarOpen ? 'w-1/3 min-w-96' : 'w-1/3 min-w-96'} h-full`} suppressHydrationWarning>
               <ProblemContainer
                 questions={parsedQuestions}
                 selectedAnswers={selectedAnswers}
                 onAnswerSelect={handleAnswerSelect}
                 onSubmit={submitAnswers}
+                onClose={handleCloseProblemContainer}
                 isSubmitting={isSubmitting}
                 submittedAnswers={submittedAnswers}
                 showResults={showResults}
@@ -510,6 +591,23 @@ export default function Home() {
                 themeColor={themeColor}
                 gradingResults={gradingResults}
               />
+            </div>
+          )}
+
+          {/* 빈 상태 표시 - 문제도 히스토리도 없을 때 */}
+          {!isSidebarOpen && parsedQuestions.length === 0 && (
+            <div className="w-1/3 min-w-96 h-full" suppressHydrationWarning>
+              <div className="w-full h-full bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm">문제가 없습니다</p>
+                  <p className="text-xs mt-1">새로운 문제를 생성해보세요</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -531,23 +629,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 문제 컨테이너 (슬라이드 인) - 문제가 있을 때만 표시 */}
-      {showProblemContainer && parsedQuestions.length > 0 && (
-        <ProblemContainer
-          questions={parsedQuestions}
-          selectedAnswers={selectedAnswers}
-          onAnswerSelect={handleAnswerSelect}
-          onSubmit={submitAnswers}
-          onClose={handleCloseProblemContainer}
-          isSubmitting={isSubmitting}
-          submittedAnswers={submittedAnswers}
-          showResults={showResults}
-          score={score}
-          totalQuestions={totalQuestions}
-          themeColor={themeColor}
-          gradingResults={gradingResults}
-        />
-      )}
 
       {/* 음성 패널 모달 */}
       {showVoicePanel && (

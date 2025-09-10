@@ -6,7 +6,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatContainerProps {
-  onProblemDetected: () => void;
+  onProblemDetected: (userMessage?: string) => void;
   onOpenSettings: () => void;
   onToggleSidebar: () => void;
   onVoiceTranscript: (transcript: string) => void;
@@ -92,6 +92,19 @@ export default function ChatContainer({
                 const data = await response.json();
                 setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
                 setMessage('');
+                
+                // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
+                // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
+                if (data.response && !autoMessage.includes('채점') && (
+                  data.response.includes('문제') && (
+                    data.response.includes('생성') || 
+                    data.response.includes('다음 중') ||
+                    data.response.includes('정답:') ||
+                    data.response.includes('해설:')
+                  )
+                )) {
+                  setTimeout(() => onProblemDetected(autoMessage), 1000);
+                }
               } catch (error) {
                 console.error('Error:', error);
                 setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 오류가 발생했습니다.' }]);
@@ -157,8 +170,18 @@ export default function ChatContainer({
         onFarmingTTS(data.response);
       }
 
-      // LLM 응답 완료 후 문제 목록 새로고침
-      setTimeout(() => onProblemDetected(), 1000);
+      // 응답에 문제가 포함되어 있는지 확인하고 문제 목록 새로고침
+      // 단, 채점 요청은 제외하고, 실제로 문제가 생성되었을 때만 호출
+      if (data.response && !message.includes('채점') && (
+        data.response.includes('문제') && (
+          data.response.includes('생성') || 
+          data.response.includes('다음 중') ||
+          data.response.includes('정답:') ||
+          data.response.includes('해설:')
+        )
+      )) {
+        setTimeout(() => onProblemDetected(message), 1000);
+      }
     } catch (error) {
       console.error("백엔드 API 호출 실패:", error);
       const errorMessage = {
