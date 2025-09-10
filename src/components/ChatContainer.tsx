@@ -13,6 +13,7 @@ interface ChatContainerProps {
   onFarmingTTS: (text: string) => void;
   isBackendConnected: boolean;
   isSidebarOpen: boolean;
+  onLayoutExpansion?: () => void;
 }
 
 export default function ChatContainer({
@@ -22,7 +23,8 @@ export default function ChatContainer({
   onVoiceTranscript,
   onFarmingTTS,
   isBackendConnected,
-  isSidebarOpen
+  isSidebarOpen,
+  onLayoutExpansion
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -47,6 +49,11 @@ export default function ChatContainer({
 
   const sendMessage = async () => {
     if (!message.trim()) return;
+
+    // 레이아웃 확장 트리거 (첫 메시지 전송 시)
+    if (onLayoutExpansion && messages.length === 0) {
+      onLayoutExpansion();
+    }
 
     // clear 명령어 감지
     if (message.trim().toLowerCase() === "clear") {
@@ -260,30 +267,42 @@ export default function ChatContainer({
 
       {/* 입력 영역 */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-        <div className="flex items-center space-x-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
+        <div className="bg-white rounded-lg p-4 flex items-center space-x-3">
+          {/* FT 로고 */}
+          <div className="flex-shrink-0">
+            <img src="/FT-logo.png" alt="FT" className="h-6 w-6" />
+          </div>
+          
+          {/* 입력 필드 */}
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="질문을 입력하세요..."
-            className="flex-1 px-2 py-2 focus:outline-none text-sm"
+            placeholder="질문을 입력해주세요."
+            className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
             disabled={isLoading || !isBackendConnected}
           />
           
-          {/* 음성 입력 버튼 */}
-          <VoiceInputButton
-            onTranscript={handleVoiceTranscript}
-            disabled={isLoading || !isBackendConnected}
-          />
-          
-          <button
-            onClick={sendMessage}
-            disabled={isLoading || !message.trim() || !isBackendConnected}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
-          >
-            전송
-          </button>
+          {/* 오른쪽 아이콘들 */}
+          <div className="flex items-center space-x-2">
+            {/* 음성 버튼 */}
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={isLoading || !isBackendConnected}
+            />
+            
+            {/* 전송 버튼 */}
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !message.trim() || !isBackendConnected}
+              className="bg-green-500 text-white rounded-lg p-2 hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
         </div>
         
         {/* 연결 상태에 따른 안내 */}
