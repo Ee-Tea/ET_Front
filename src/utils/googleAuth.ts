@@ -81,7 +81,6 @@ export const initiateGoogleLoginWithTestedUri = (): void => {
   
   // 추가 보안 파라미터
   console.log(authUrl);
-  alert(authUrl);
   
   window.location.href = authUrl;
 };

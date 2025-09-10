@@ -22,7 +22,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     if (provider === 'Google') {
       try {
         console.log('구글 로그인 시작...');
-        alert("asdsad");
         // 방법 1: 백엔드 엔드포인트 사용 시도
         try {
           const response = await fetch('http://localhost:8124/auth/google', {
@@ -44,7 +43,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         } catch (backendError) {
           console.log('백엔드 엔드포인트 사용 불가, 직접 구글 OAuth 시도...');
         }
-        alert("aOAuthsdsad");
         // 방법 2: 직접 구글 OAuth 사용 (테스트된 URI)
         console.log('직접 구글 OAuth 인증 시작...');
         checkGoogleAuthConfig(); // 설정 확인
