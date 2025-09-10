@@ -41,7 +41,7 @@ export default function GoogleCallbackPage() {
       
       try {
         // 백엔드로 인증 코드 전송하여 사용자 정보 받기
-        const response = await fetch('http://localhost:8000/auth/google/callback', {
+        const response = await fetch('http://localhost:8124/auth/google/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

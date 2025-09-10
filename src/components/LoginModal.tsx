@@ -25,7 +25,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         alert("asdsad");
         // 방법 1: 백엔드 엔드포인트 사용 시도
         try {
-          const response = await fetch('http://localhost:8123/auth/google', {
+          const response = await fetch('http://localhost:8124/auth/google', {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -52,7 +52,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         
       } catch (error) {
         console.error('구글 로그인 오류:', error);
-        alert(`구글 로그인 중 오류가 발생했습니다: ${error.message}`);
+        // alert(`구글 로그인 중 오류가 발생했습니다: ${error.message}`);
         setIsLoading(false);
       }
     } else {

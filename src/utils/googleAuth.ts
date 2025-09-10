@@ -14,7 +14,7 @@ export const GOOGLE_AUTH_CONFIG: GoogleAuthConfig = {
 };
 
 // 테스트된 리디렉션 URI (메인 페이지)
-export const WORKING_REDIRECT_URI = 'http://localhost:8000/auth/google/callback';
+export const WORKING_REDIRECT_URI = 'http://localhost:8124/auth/google/callback';
 
 // 구글 로그인 URL 생성
 export const generateGoogleAuthUrl = (): string => {
@@ -69,7 +69,7 @@ export const initiateGoogleLoginWithTestedUri = (): void => {
   });*/
   const params = `https://accounts.google.com/o/oauth2/v2/auth?` +
   `client_id=236988096890-5sdm5ivdu05e88g9obi449iq2mum4554.apps.googleusercontent.com&` +
-  `redirect_uri=http://localhost:8000/auth/google/callback&` +
+  `redirect_uri=http://localhost:8124/auth/google/callback&` +
   `response_type=code&` +
   `scope=email profile&` +
   `access_type=offline&` +
@@ -112,27 +112,27 @@ export const checkGoogleAuthConfig = (): void => {
 };
 
 // 백엔드로 인증 코드 전송하여 토큰 받기
-export const exchangeCodeForToken = async (code: string): Promise<any> => {
-  try {
-    console.log('백엔드로 인증 코드 전송:', code);
+// export const exchangeCodeForToken = async (code: string): Promise<any> => {
+//   try {
+//     console.log('백엔드로 인증 코드 전송:', code);
     
-    const response = await fetch('http://localhost:8123/auth/google/callback', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ code }),
-    });
+//     const response = await fetch('http://localhost:8124/auth/google/callback', {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify({ code }),
+//     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
 
-    const data = await response.json();
-    console.log('토큰 받기 성공:', data);
-    return data;
-  } catch (error) {
-    console.error('토큰 교환 오류:', error);
-    throw error;
-  }
-};
+//     const data = await response.json();
+//     console.log('토큰 받기 성공:', data);
+//     return data;
+//   } catch (error) {
+//     console.error('토큰 교환 오류:', error);
+//     throw error;
+//   }
+// };

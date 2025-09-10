@@ -79,7 +79,7 @@ export default function Home() {
   // PDF 관련 함수들
   const checkPdfGenerationStatus = async () => {
     try {
-      const response = await fetch("http://localhost:8000/pdf-status", {
+      const response = await fetch("http://localhost:8124/pdf-status", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -108,7 +108,7 @@ export default function Home() {
 
   const fetchPdfs = async () => {
     try {
-      const response = await fetch("http://localhost:8000/pdfs", {
+      const response = await fetch("http://localhost:8124/pdfs", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -126,7 +126,7 @@ export default function Home() {
 
   const downloadPdf = async (filename: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/pdf/${filename}`, {
+      const response = await fetch(`http://localhost:8124/pdf/${filename}`, {
         method: "GET",
       });
 
@@ -204,7 +204,7 @@ export default function Home() {
   // 최근 질문 가져오기
   const fetchRecentQuestions = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/recent-questions`, {
+      const response = await fetch(`http://localhost:8124/recent-questions`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -238,7 +238,7 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("http://localhost:8124/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
