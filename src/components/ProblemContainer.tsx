@@ -8,6 +8,7 @@ interface ProblemContainerProps {
   onAnswerSelect?: (questionId: string, answer: string) => void;
   onSubmit?: () => void;
   onClose?: () => void;
+  onOpenPdf?: () => void;
   isSubmitting?: boolean;
   submittedAnswers?: {[key: number]: number};
   showResults?: boolean;
@@ -23,6 +24,7 @@ export default function ProblemContainer({
   onAnswerSelect,
   onSubmit,
   onClose,
+  onOpenPdf,
   isSubmitting = false,
   submittedAnswers = {},
   showResults = false,
@@ -36,15 +38,28 @@ export default function ProblemContainer({
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800 text-center flex-1">문제</h2>
-        <button
-          onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
-          title="문제 닫기"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center space-x-2">
+          {/* PDF 버튼 */}
+          <button
+            onClick={onOpenPdf}
+            className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+            title="PDF 자료실"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
+          {/* 닫기 버튼 */}
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+            title="문제 닫기"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* 내용 */}

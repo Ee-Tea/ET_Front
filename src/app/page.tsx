@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import ChatHistoryContainer from '@/components/ChatHistoryContainer';
 import ProblemContainer from '@/components/ProblemContainer';
+import PdfContainer from '@/components/PdfContainer';
+import PdfViewer from '@/components/PdfViewer';
 import ChatContainer from '@/components/ChatContainer';
 import { VoicePanel } from '@/components/VoicePanel';
 import { LoginModal } from '@/components/LoginModal';
@@ -30,6 +32,14 @@ export default function Home() {
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [showProblemAfterSubmit, setShowProblemAfterSubmit] = useState(false);
   const [isProblemRequest, setIsProblemRequest] = useState(false);
+  
+  // PDF 컨테이너 관련 상태
+  const [showPdfContainer, setShowPdfContainer] = useState(false);
+  
+  // PDF 뷰어 관련 상태
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState<string>('');
+  const [currentPdfFilename, setCurrentPdfFilename] = useState<string>('');
   
   // PDF 관련 상태
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState({
@@ -123,30 +133,47 @@ export default function Home() {
 
   const fetchPdfs = async () => {
     try {
+      console.log('PDF 목록 가져오기 시도: http://localhost:8000/pdfs');
       const response = await fetch("http://localhost:8000/pdfs", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
 
+      console.log('PDF 목록 응답:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('PDF 목록 데이터:', data);
         setAvailablePdfs(data.pdfs || []);
       } else {
+        console.warn('PDF 목록 가져오기 실패:', response.status);
         setAvailablePdfs([]);
       }
     } catch (error) {
+      console.error('PDF 목록 가져오기 오류:', error);
       setAvailablePdfs([]);
     }
   };
 
+
   const downloadPdf = async (filename: string) => {
     try {
+      console.log('PDF 다운로드 시도:', filename);
       const response = await fetch(`http://localhost:8000/pdf/${filename}`, {
         method: "GET",
       });
 
+      console.log('PDF 다운로드 응답:', response.status, response.statusText);
+
       if (response.ok) {
         const blob = await response.blob();
+        console.log('PDF 다운로드 Blob 크기:', blob.size, 'bytes');
+        
+        if (blob.size === 0) {
+          alert("PDF 파일이 비어있습니다.");
+          return;
+        }
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -155,10 +182,14 @@ export default function Home() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        console.log('PDF 다운로드 완료:', filename);
       } else {
-        alert("PDF 다운로드에 실패했습니다. 서버 연결을 확인해주세요.");
+        const errorText = await response.text();
+        console.error('PDF 다운로드 실패:', errorText);
+        alert(`PDF 다운로드에 실패했습니다. (${response.status}) 서버 연결을 확인해주세요.`);
       }
     } catch (error) {
+      console.error('PDF 다운로드 오류:', error);
       alert("PDF 다운로드 중 오류가 발생했습니다. 서버 연결을 확인해주세요.");
     }
   };
@@ -398,6 +429,35 @@ export default function Home() {
     setIsProblemRequest(false);
   };
 
+  // PDF 컨테이너 열기
+  const handleOpenPdfContainer = () => {
+    setShowPdfContainer(true);
+    // PDF 목록 새로고침
+    fetchPdfs();
+  };
+
+  // PDF 컨테이너 닫기
+  const handleClosePdfContainer = () => {
+    setShowPdfContainer(false);
+  };
+
+  // PDF 뷰어 열기
+  const handleViewPdf = (filename: string) => {
+    // PDF 서버는 8000 포트를 사용하는 것 같으니 두 가지 URL 모두 시도
+    const pdfUrl = `http://localhost:8000/pdf/${filename}`;
+    console.log('PDF 뷰어 열기:', filename, 'URL:', pdfUrl);
+    setCurrentPdfUrl(pdfUrl);
+    setCurrentPdfFilename(filename);
+    setShowPdfViewer(true);
+  };
+
+  // PDF 뷰어 닫기
+  const handleClosePdfViewer = () => {
+    setShowPdfViewer(false);
+    setCurrentPdfUrl('');
+    setCurrentPdfFilename('');
+  };
+
   // 음성 관련 함수들
   const handleVoiceTranscript = (transcript: string) => {
     console.log("음성 인식 결과:", transcript);
@@ -609,16 +669,27 @@ export default function Home() {
             </div>
           )}
 
-          {/* 문제 컨테이너 - 문제 생성 요청일 때 표시 (응답 중이거나 문제가 있을 때) */}
+          {/* 문제 컨테이너 또는 PDF 컨테이너 - 문제 생성 요청일 때 표시 */}
           {isProblemRequest && (
             <div className={`${isSidebarOpen ? 'w-1/3 min-w-96' : 'w-1/3 min-w-96'} h-full`} suppressHydrationWarning>
-              {parsedQuestions.length > 0 ? (
+              {showPdfContainer ? (
+                /* PDF 컨테이너 */
+                <PdfContainer
+                  availablePdfs={availablePdfs}
+                  onDownloadPdf={downloadPdf}
+                  onViewPdf={handleViewPdf}
+                  onClose={handleClosePdfContainer}
+                  isBackendConnected={isBackendConnected}
+                />
+              ) : parsedQuestions.length > 0 ? (
+                /* 문제 컨테이너 */
                 <ProblemContainer
                   questions={parsedQuestions}
                   selectedAnswers={selectedAnswers}
                   onAnswerSelect={handleAnswerSelect}
                   onSubmit={submitAnswers}
                   onClose={handleCloseProblemContainer}
+                  onOpenPdf={handleOpenPdfContainer}
                   isSubmitting={isSubmitting}
                   submittedAnswers={submittedAnswers}
                   showResults={showResults}
@@ -675,6 +746,15 @@ export default function Home() {
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
+      />
+
+      {/* PDF 뷰어 모달 */}
+      <PdfViewer
+        isOpen={showPdfViewer}
+        onClose={handleClosePdfViewer}
+        pdfUrl={currentPdfUrl}
+        filename={currentPdfFilename}
+        isBackendConnected={isBackendConnected}
       />
 
   </div>
