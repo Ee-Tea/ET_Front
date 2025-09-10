@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { initiateGoogleLogin, initiateGoogleLoginWithTestedUri, checkGoogleAuthConfig } from '../utils/googleAuth';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -10,54 +9,37 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  
+
   if (!isOpen) return null;
 
-  const handleSocialLogin = async (provider: string) => {
-    if (isLoading) return; // 로딩 중이면 중복 요청 방지
-    
+  const handleSocialLogin = async (provider: 'Google' | 'Naver' | 'Kakao') => {
+    if (isLoading) return;
     setIsLoading(true);
-    console.log(`${provider} 로그인 시도`);
-    
-    if (provider === 'Google') {
-      try {
-        console.log('구글 로그인 시작...');
-        alert("asdsad");
-        // 방법 1: 백엔드 엔드포인트 사용 시도
-        try {
-          const response = await fetch('http://localhost:8124/auth/google', {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('백엔드에서 구글 로그인 URL 받음:', data);
-            if (data.url) {
-              window.location.href = data.url;
-              return;
-            }
-          }
-        } catch (backendError) {
-          console.log('백엔드 엔드포인트 사용 불가, 직접 구글 OAuth 시도...');
-        }
-        alert("aOAuthsdsad");
-        // 방법 2: 직접 구글 OAuth 사용 (테스트된 URI)
-        console.log('직접 구글 OAuth 인증 시작...');
-        checkGoogleAuthConfig(); // 설정 확인
-        initiateGoogleLoginWithTestedUri();
-        
-      } catch (error) {
-        console.error('구글 로그인 오류:', error);
-        // alert(`구글 로그인 중 오류가 발생했습니다: ${error.message}`);
-        setIsLoading(false);
+
+    try {
+      if (provider === 'Google') {
+        // ✅ 8124 직접 호출 (프록시 미사용) — 리다이렉트 URI도 8124
+        const res = await fetch('http://localhost:8124/auth/google', {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        });
+        if (!res.ok) throw new Error(`auth/google 실패: ${res.status}`);
+
+        const data = await res.json();
+        const url = data.auth_url || data.url;
+        if (!url) throw new Error('auth_url 누락');
+
+        // 구글 OAuth로 이동 → (인증 후) http://localhost:8124/auth/google/callback 으로 복귀
+        // 콜백에서 8124 도메인에 access_token 쿠키를 심고, 3000으로 302 리다이렉트
+        window.location.href = url;
+        return;
       }
-    } else {
-      // 다른 소셜 로그인은 아직 구현되지 않음
-      alert(`${provider} 로그인 기능이 곧 추가될 예정입니다.`);
+
+      if (provider === 'Naver' || provider === 'Kakao') {
+        alert(`${provider} 로그인은 준비 중입니다.`);
+      }
+    } catch (e) {
+      console.error('소셜 로그인 시작 실패:', e);
       setIsLoading(false);
     }
   };
@@ -68,7 +50,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         {/* 헤더 */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-center relative">
-            <div></div>
+            <div />
             <button
               onClick={onClose}
               className="absolute -right-1 text-gray-400 hover:text-gray-600 transition-colors"
@@ -82,8 +64,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <p className="text-gray-600 mt-2 text-center">계정에 로그인하여 더 많은 기능을 이용하세요</p>
         </div>
 
-                    {/* 소셜 로그인 버튼들 */}
-                    <div className="p-6 space-y-12 flex-1 flex flex-col justify-center">
+        {/* 소셜 로그인 버튼들 */}
+        <div className="p-6 space-y-12 flex-1 flex flex-col justify-center">
           {/* Google Login */}
           <button
             onClick={() => handleSocialLogin('Google')}
@@ -91,7 +73,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700" />
             ) : (
               <svg className="w-6 h-6" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
