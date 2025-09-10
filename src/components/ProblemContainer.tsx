@@ -106,7 +106,7 @@ export default function ProblemContainer({
                       {question.id || index + 1}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-semibold text-gray-800 mb-4 leading-relaxed">
+                      <h3 className="text-base font-semibold text-gray-900 mb-4 leading-relaxed">
                         {question.question}
                       </h3>
                       
@@ -125,22 +125,40 @@ export default function ProblemContainer({
                                     ? 'bg-green-100 border-green-300 text-green-800' 
                                     : isSelected && !isCorrectOption
                                     ? 'bg-red-100 border-red-300 text-red-800'
-                                    : 'bg-gray-50 border-gray-200'
+                                    : 'bg-gray-100 border-gray-300'
                                   : isSelected
                                   ? 'bg-blue-50 border-blue-300'
-                                  : 'bg-white border-gray-200 hover:bg-gray-50'
+                                  : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
                               } ${!showResults ? 'cursor-pointer' : 'cursor-default'}`}
+                              onClick={() => {
+                                if (!showResults && onAnswerSelect) {
+                                  onAnswerSelect(questionId, option);
+                                }
+                              }}
                             >
                               <input
                                 type="radio"
                                 name={`question-${question.id || index}`}
                                 value={option}
                                 checked={isSelected}
-                                onChange={(e) => onAnswerSelect?.(questionId, e.target.value)}
-                                className="text-blue-600"
+                                onChange={(e) => {
+                                  console.log('라디오 버튼 클릭:', questionId, e.target.value);
+                                  onAnswerSelect?.(questionId, e.target.value);
+                                }}
+                                className="text-blue-600 cursor-pointer"
                                 disabled={showResults}
                               />
-                              <span className="text-sm flex-1">{option}</span>
+                              <span className={`text-sm flex-1 cursor-pointer ${
+                                showResults 
+                                  ? isCorrectOption 
+                                    ? 'text-green-800 font-medium' 
+                                    : isSelected && !isCorrectOption
+                                    ? 'text-red-800 font-medium'
+                                    : 'text-gray-700'
+                                  : isSelected
+                                  ? 'text-blue-800 font-medium'
+                                  : 'text-gray-800'
+                              }`}>{option}</span>
                               {showResults && (
                                 <div className="flex-shrink-0">
                                   {isCorrectOption && (

@@ -94,7 +94,7 @@ export default function Home() {
   // PDF 관련 함수들
   const checkPdfGenerationStatus = async () => {
     try {
-      const response = await fetch("http://localhost:8124/pdf-status", {
+      const response = await fetch("http://localhost:8000/pdf-status", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -123,7 +123,7 @@ export default function Home() {
 
   const fetchPdfs = async () => {
     try {
-      const response = await fetch("http://localhost:8124/pdfs", {
+      const response = await fetch("http://localhost:8000/pdfs", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -141,7 +141,7 @@ export default function Home() {
 
   const downloadPdf = async (filename: string) => {
     try {
-      const response = await fetch(`http://localhost:8124/pdf/${filename}`, {
+      const response = await fetch(`http://localhost:8000/pdf/${filename}`, {
         method: "GET",
       });
 
@@ -168,19 +168,40 @@ export default function Home() {
     checkPdfGenerationStatus();
   }, []);
 
-  // 문제 생성 요청 감지 함수
+  // 정처기 관련 문제 생성 요청 감지 함수
   const isProblemGenerationRequest = (message: string) => {
-    const problemKeywords = [
+    const lowerMessage = message.toLowerCase();
+    
+    // 정처기 관련 키워드들
+    const jpkiKeywords = [
+      '정처기', '정보처리기사', '정보처리', 'jpki', 'jpki시험', 'jpki문제',
+      '소프트웨어설계', '소프트웨어 설계', '데이터베이스', '데이터베이스구축',
+      '시스템분석설계', '시스템 분석 설계', '프로그래밍언어', '프로그래밍 언어',
+      '정보시스템구축', '정보시스템 구축', 'it기술', 'it 기술'
+    ];
+    
+    // 문제 생성 요청 키워드들
+    const problemGenerationKeywords = [
       '문제 만들어줘', '문제 생성해줘', '문제 만들어', '문제 생성해',
       '문제 만들어주세요', '문제 생성해주세요', '문제 만들어줄래',
       '문제 생성해줄래', '문제 만들어줄 수 있어', '문제 생성해줄 수 있어',
       '문제 만들어주실 수 있어', '문제 생성해주실 수 있어',
-      '문제', '퀴즈', '시험문제', '문제집', '문제은행'
+      '퀴즈 만들어줘', '퀴즈 생성해줘', '시험문제 만들어줘', '시험문제 생성해줘',
+      '문제집 만들어줘', '문제은행 만들어줘'
     ];
     
-    return problemKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
+    // 정처기 관련 키워드가 있는지 확인
+    const hasJpkiKeyword = jpkiKeywords.some(keyword => 
+      lowerMessage.includes(keyword.toLowerCase())
     );
+    
+    // 문제 생성 요청인지 확인
+    const hasGenerationRequest = problemGenerationKeywords.some(keyword => 
+      lowerMessage.includes(keyword.toLowerCase())
+    );
+    
+    // 정처기 관련 키워드가 있고 문제 생성 요청이 있는 경우만 true 반환
+    return hasJpkiKeyword && hasGenerationRequest;
   };
 
   // 문제 파싱 함수
@@ -233,18 +254,25 @@ export default function Home() {
 
   // 최근 질문 가져오기
   const fetchRecentQuestions = async (userMessage?: string) => {
-    // 이미 문제가 표시 중이면 중복 호출 방지
-    if (parsedQuestions.length > 0) {
+    // 이미 문제가 표시 중이고 문제 생성 요청이면 중복 호출 방지
+    if (parsedQuestions.length > 0 && isProblemRequest) {
       return;
     }
 
     // 문제 생성 요청이 아니면 문제 컨테이너를 표시하지 않음
     if (userMessage && !isProblemGenerationRequest(userMessage)) {
+      setIsProblemRequest(false);
       return;
     }
 
+    // 정처기 관련 문제 생성 요청이면 일단 문제 컨테이너를 표시
+    if (userMessage && isProblemGenerationRequest(userMessage)) {
+      setIsProblemRequest(true);
+      setShowProblemAfterSubmit(true);
+    }
+
     try {
-      const response = await fetch(`http://localhost:8124/recent-questions`, {
+      const response = await fetch(`http://localhost:8000/recent-questions`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -260,10 +288,13 @@ export default function Home() {
           setIsProblemRequest(true); // 문제 생성 요청임을 표시
         }
       } else {
-        setParsedQuestions([]);
+        console.warn('문제 서버 응답 오류:', response.status);
+        // 서버 응답 오류 시에도 문제 컨테이너는 유지
       }
     } catch (error) {
-      console.error('문제 가져오기 실패:', error);
+      console.warn('문제 서버 연결 실패 - 정상적인 동작입니다:', error);
+      // 서버가 연결되지 않은 경우에도 문제 컨테이너는 표시 유지
+      // 빈 문제 배열로 설정하되 문제 컨테이너는 계속 표시
       setParsedQuestions([]);
     }
   };
@@ -283,7 +314,7 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
-      const response = await fetch("http://localhost:8124/chat", {
+      const response = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -343,10 +374,15 @@ export default function Home() {
 
   // 답안 선택 핸들러
   const handleAnswerSelect = (questionId: string, answer: string) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionId]: answer
-    }));
+    console.log('답안 선택:', questionId, answer);
+    setSelectedAnswers(prev => {
+      const newAnswers = {
+        ...prev,
+        [questionId]: answer
+      };
+      console.log('새로운 답안 상태:', newAnswers);
+      return newAnswers;
+    });
   };
 
   // 문제 컨테이너 닫기
@@ -559,9 +595,9 @@ export default function Home() {
           /* 확장된 레이아웃 - 전체 화면 */
           <div className="h-full flex gap-4 transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95" suppressHydrationWarning>
           
-          {/* 채팅 히스토리 - 문제 컨테이너가 있을 때는 왼쪽에, 없을 때는 조건부 표시 */}
+          {/* 채팅 히스토리 - 문제 생성 요청일 때는 더 좁게, 아니면 기본 크기 */}
           {isSidebarOpen && (
-            <div className={`${parsedQuestions.length > 0 && showProblemAfterSubmit ? 'w-1/4 min-w-80' : 'w-1/5 min-w-80'} h-full`} suppressHydrationWarning>
+            <div className={`${isProblemRequest ? 'w-1/5 min-w-64' : 'w-1/4 min-w-80'} h-full`} suppressHydrationWarning>
               <ChatHistoryContainer
                 testSessions={testSessions}
                 setTestSessions={setTestSessions}
@@ -573,40 +609,38 @@ export default function Home() {
             </div>
           )}
 
-          {/* 문제 컨테이너 - 문제가 있을 때만 표시 */}
-          {parsedQuestions.length > 0 && showProblemAfterSubmit && (
+          {/* 문제 컨테이너 - 문제 생성 요청일 때 표시 (응답 중이거나 문제가 있을 때) */}
+          {isProblemRequest && (
             <div className={`${isSidebarOpen ? 'w-1/3 min-w-96' : 'w-1/3 min-w-96'} h-full`} suppressHydrationWarning>
-              <ProblemContainer
-                questions={parsedQuestions}
-                selectedAnswers={selectedAnswers}
-                onAnswerSelect={handleAnswerSelect}
-                onSubmit={submitAnswers}
-                onClose={handleCloseProblemContainer}
-                isSubmitting={isSubmitting}
-                submittedAnswers={submittedAnswers}
-                showResults={showResults}
-                score={score}
-                totalQuestions={totalQuestions}
-                themeColor={themeColor}
-                gradingResults={gradingResults}
-              />
-            </div>
-          )}
-
-          {/* 빈 상태 표시 - 문제도 히스토리도 없을 때 */}
-          {!isSidebarOpen && parsedQuestions.length === 0 && (
-            <div className="w-1/3 min-w-96 h-full" suppressHydrationWarning>
-              <div className="w-full h-full bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+              {parsedQuestions.length > 0 ? (
+                <ProblemContainer
+                  questions={parsedQuestions}
+                  selectedAnswers={selectedAnswers}
+                  onAnswerSelect={handleAnswerSelect}
+                  onSubmit={submitAnswers}
+                  onClose={handleCloseProblemContainer}
+                  isSubmitting={isSubmitting}
+                  submittedAnswers={submittedAnswers}
+                  showResults={showResults}
+                  score={score}
+                  totalQuestions={totalQuestions}
+                  themeColor={themeColor}
+                  gradingResults={gradingResults}
+                />
+              ) : (
+                /* 응답 중일 때 빈 상태 표시 */
+                <div className="w-full h-full bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm">문제가 없습니다</p>
+                    <p className="text-xs mt-1">새로운 문제를 생성해보세요</p>
                   </div>
-                  <p className="text-sm">문제가 없습니다</p>
-                  <p className="text-xs mt-1">새로운 문제를 생성해보세요</p>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
