@@ -14,6 +14,8 @@ interface ChatContainerProps {
   isBackendConnected: boolean;
   isSidebarOpen: boolean;
   onLayoutExpansion?: () => void;
+  message?: string;
+  setMessage?: (message: string) => void;
 }
 
 export default function ChatContainer({
@@ -24,7 +26,9 @@ export default function ChatContainer({
   onFarmingTTS,
   isBackendConnected,
   isSidebarOpen,
-  onLayoutExpansion
+  onLayoutExpansion,
+  message: externalMessage,
+  setMessage: externalSetMessage
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -43,9 +47,69 @@ export default function ChatContainer({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(externalMessage || '');
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 외부에서 받은 message 값이 변경될 때 내부 상태 업데이트
+  useEffect(() => {
+    if (externalMessage !== undefined) {
+      setMessage(externalMessage);
+    }
+  }, [externalMessage]);
+
+  // 자동 전송 이벤트 리스너
+  useEffect(() => {
+    const handleAutoSend = (event: CustomEvent) => {
+      const { message: autoMessage } = event.detail;
+      if (autoMessage && autoMessage.trim()) {
+        setMessage(autoMessage);
+        // 메시지 설정 후 자동 전송을 위한 플래그 설정
+        setTimeout(() => {
+          // 직접 sendMessage 로직 실행
+          if (autoMessage.trim() && !isLoading && isBackendConnected) {
+            const sendAutoMessage = async () => {
+              setIsLoading(true);
+              const newMessage = { role: 'user', content: autoMessage };
+              setMessages(prev => [...prev, newMessage]);
+              
+              try {
+                const response = await fetch('http://localhost:8000/chat', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    message: autoMessage,
+                    session_id: null
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+                setMessage('');
+              } catch (error) {
+                console.error('Error:', error);
+                setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 오류가 발생했습니다.' }]);
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            sendAutoMessage();
+          }
+        }, 50);
+      }
+    };
+
+    window.addEventListener('autoSendMessage', handleAutoSend as EventListener);
+    return () => {
+      window.removeEventListener('autoSendMessage', handleAutoSend as EventListener);
+    };
+  }, [isLoading, isBackendConnected]);
 
   const sendMessage = async () => {
     if (!message.trim()) return;

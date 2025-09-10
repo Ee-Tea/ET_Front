@@ -50,6 +50,7 @@ export default function Home() {
   const [logoClickCount, setLogoClickCount] = useState(0);
   const [miniMessage, setMiniMessage] = useState('');
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
   
   
   // 백엔드 연결 상태
@@ -330,6 +331,18 @@ export default function Home() {
   const handleLayoutExpansion = () => {
     if (!isLayoutExpanded) {
       setIsLayoutExpanded(true);
+      // 미니 모드의 메시지를 전체 모드로 전달하고 자동 전송
+      if (miniMessage.trim()) {
+        setMessage(miniMessage);
+        // 약간의 지연 후 자동 전송 (레이아웃 전환 완료 후)
+        setTimeout(() => {
+          // ChatContainer의 sendMessage 함수를 호출하기 위해 이벤트 발생
+          const event = new CustomEvent('autoSendMessage', { 
+            detail: { message: miniMessage } 
+          });
+          window.dispatchEvent(event);
+        }, 100);
+      }
     }
   };
 
@@ -338,7 +351,7 @@ export default function Home() {
     setLogoClickCount(newCount);
     
     if (newCount >= 15) {
-      window.open('https://youtu.be/S5QNkr7EGgo?si=eSaFpWhOHoB2r3E4', '_blank');
+      window.open('https://youtu.be/8al5cSQNmME?si=kl6C3v8FLaIfB3hu&t=98', '_blank');
       setLogoClickCount(0); // 카운트 리셋
     }
   };
@@ -511,6 +524,8 @@ export default function Home() {
               isBackendConnected={isBackendConnected}
               isSidebarOpen={isSidebarOpen}
               onLayoutExpansion={handleLayoutExpansion}
+              message={message}
+              setMessage={setMessage}
             />
           </div>
         </div>
