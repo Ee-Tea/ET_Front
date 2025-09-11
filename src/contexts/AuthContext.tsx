@@ -20,8 +20,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 동일 오리진 프록시 사용: /api 로 호출
-const AUTH_API = 'http://localhost:8124'; // process.env.NEXT_PUBLIC_AUTH_API 사용 안 함
+// 8124에 쿠키 저장을 원하므로 직접 8124를 호출
+const AUTH_ORIGIN = typeof window !== 'undefined' ? `http://${window.location.hostname}:8124` : 'http://localhost:8124';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchMe = async (label: string) => {
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`${AUTH_API}/auth/me`, {
+      const res = await fetch(`${AUTH_ORIGIN}/auth/me`, {
         credentials: 'include',
       });
       if (!res.ok) {
