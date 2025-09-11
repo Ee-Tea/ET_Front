@@ -84,7 +84,7 @@ export default function Home() {
   useEffect(() => {
     const checkBackendConnection = async () => {
       try {
-        const response = await fetch('http://localhost:8000/health');
+        const response = await fetch('/backend/health');
         setIsBackendConnected(response.ok);
       } catch (error) {
         setIsBackendConnected(false);
@@ -104,7 +104,7 @@ export default function Home() {
   // PDF 관련 함수들
   const checkPdfGenerationStatus = async () => {
     try {
-      const response = await fetch("http://localhost:8000/pdf-status", {
+      const response = await fetch("/backend/pdf-status", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -133,8 +133,8 @@ export default function Home() {
 
   const fetchPdfs = async () => {
     try {
-      console.log('PDF 목록 가져오기 시도: http://localhost:8000/pdfs');
-      const response = await fetch("http://localhost:8000/pdfs", {
+      console.log('PDF 목록 가져오기 시도: /backend/pdfs');
+      const response = await fetch("/backend/pdfs", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -159,7 +159,7 @@ export default function Home() {
   const downloadPdf = async (filename: string) => {
     try {
       console.log('PDF 다운로드 시도:', filename);
-      const response = await fetch(`http://localhost:8000/pdf/${filename}`, {
+      const response = await fetch(`/backend/pdf/${filename}`, {
         method: "GET",
       });
 
@@ -303,7 +303,7 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/recent-questions`, {
+      const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -345,7 +345,7 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("/backend/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -444,7 +444,7 @@ export default function Home() {
   // PDF 뷰어 열기
   const handleViewPdf = (filename: string) => {
     // PDF 서버는 8000 포트를 사용하는 것 같으니 두 가지 URL 모두 시도
-    const pdfUrl = `http://localhost:8000/pdf/${filename}`;
+    const pdfUrl = `/backend/pdf/${filename}`;
     console.log('PDF 뷰어 열기:', filename, 'URL:', pdfUrl);
     setCurrentPdfUrl(pdfUrl);
     setCurrentPdfFilename(filename);
