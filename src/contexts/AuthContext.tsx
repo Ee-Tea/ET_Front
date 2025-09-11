@@ -21,7 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // 동일 오리진 프록시 사용: /api 로 호출
-const AUTH_API = 'http://localhost:8124'; // process.env.NEXT_PUBLIC_AUTH_API 사용 안 함
+const AUTH_API = ''; // Next.js 프록시를 통해 /api 경로 사용
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,16 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchMe = async (label: string) => {
-    // 모바일 페이지에서는 백엔드 연결 시도하지 않음
+    // 모바일 페이지에서도 인증 확인은 시도하되, 실패해도 계속 진행
     if (window.location.pathname.startsWith('/mobile')) {
-      console.log('[AUTH] 모바일 페이지 - 백엔드 연결 건너뛰기');
-      setIsLoading(false);
-      return;
+      console.log('[AUTH] 모바일 페이지 - 인증 확인 시도');
     }
 
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`${AUTH_API}/auth/me`, {
+      const res = await fetch(`${AUTH_API}/api/auth/me`, {
         credentials: 'include',
       });
       if (!res.ok) {
@@ -59,6 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('user', JSON.stringify(me));
     } catch (e) {
       console.error('[AUTH] /auth/me 에러:', e);
+      // 모바일 페이지에서는 인증 실패해도 계속 진행
+      if (window.location.pathname.startsWith('/mobile')) {
+        console.log('[AUTH] 모바일 페이지 - 인증 실패해도 계속 진행');
+        setIsLoading(false);
+        return;
+      }
       setUser(null);
       localStorage.removeItem('user');
     }

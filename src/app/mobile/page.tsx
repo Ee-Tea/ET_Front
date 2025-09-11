@@ -2,20 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { LoadingPage, MainPage } from '@/components/mobile';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function MobilePage() {
+  const { user, isLoggedIn } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<'loading' | 'main'>('loading');
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
 
   useEffect(() => {
-    // 2초 후 로딩 완료
+    // 2초 후 로딩 완료 (웹페이지와 동일하게)
     const timer = setTimeout(() => {
       setIsLoading(false);
       setCurrentPage('main');
     }, 2000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleQuestionSubmit = (question: string) => {
@@ -35,7 +38,8 @@ export default function MobilePage() {
         <MainPage 
           onQuestionSubmit={handleQuestionSubmit}
           onVoiceInput={handleVoiceInput}
-          isBackendConnected={isBackendConnected}
+          isLoggedIn={isLoggedIn}
+          user={user}
         />
       )}
     </div>

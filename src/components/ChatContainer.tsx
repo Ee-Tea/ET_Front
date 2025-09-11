@@ -192,7 +192,7 @@ export default function ChatContainer({
     }
 
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("/backend/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -244,7 +244,7 @@ export default function ChatContainer({
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/clear", {
+      const response = await fetch("/backend/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

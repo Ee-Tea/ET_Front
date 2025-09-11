@@ -6,7 +6,6 @@ import Image from 'next/image';
 interface MobileSettingsMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  isBackendConnected: boolean;
   onVoiceTest?: () => void;
   onGetHelp?: () => void;
   onLogin?: () => void;
@@ -16,7 +15,6 @@ interface MobileSettingsMenuProps {
 const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
   isOpen,
   onClose,
-  isBackendConnected,
   onVoiceTest,
   onGetHelp,
   onLogin,
@@ -54,23 +52,6 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
 
         {/* 메뉴 아이템들 */}
         <div className="px-6 py-4 space-y-4">
-          {/* 서버 상태 */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="text-gray-800 font-medium">서버 상태</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={`text-sm ${isBackendConnected ? 'text-green-600' : 'text-red-600'}`}>
-                {isBackendConnected ? '연결됨' : '연결 안됨'}
-              </span>
-            </div>
-          </div>
 
           {/* 음성 테스트 */}
           <button

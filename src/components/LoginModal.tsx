@@ -19,7 +19,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     try {
       if (provider === 'Google') {
         // ✅ 8124 직접 호출 (프록시 미사용) — 리다이렉트 URI도 8124
-        const res = await fetch('http://localhost:8124/auth/google', {
+        const res = await fetch('/api/auth/google', {
           method: 'GET',
           headers: { 'Accept': 'application/json' },
         });

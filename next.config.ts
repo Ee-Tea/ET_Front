@@ -20,10 +20,14 @@ const nextConfig: NextConfig = {
     pagesBufferLength: 2,
   },
 
-  // ✅ 프록시: 프론트(3000) → 백엔드(8124)
+  // ✅ 프록시: 프론트(3000) → 백엔드들
   async rewrites() {
     return [
+      // 인증 서버 (8124) 프록시
+      { source: '/api/auth/:path*', destination: 'http://localhost:8124/auth/:path*' },
       { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
+      // 채팅/PDF 서버 (8000) 프록시
+      { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
     ];
   },
 };
