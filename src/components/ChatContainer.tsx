@@ -232,11 +232,6 @@ export default function ChatContainer({
       }
     } catch (error) {
       console.error("백엔드 API 호출 실패:", error);
-      const errorMessage = {
-        role: "assistant",
-        content: "죄송합니다. 백엔드 서버에 연결할 수 없습니다."
-      };
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -440,13 +435,6 @@ export default function ChatContainer({
         </div>
         
         {/* 연결 상태에 따른 안내 */}
-        {!isBackendConnected && (
-          <div className="mt-2 text-center">
-            <p className="text-sm text-red-600">
-              백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

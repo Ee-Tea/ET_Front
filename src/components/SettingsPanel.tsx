@@ -264,35 +264,6 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
       {/* 메뉴 항목들 */}
       <div className="py-1">
         <button
-          onClick={() => {
-            alert('설정 기능이 곧 추가될 예정입니다.');
-          }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-        >
-          <svg className="w-4 h-4 mr-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-          </svg>
-          설정
-        </button>
-        
-        <button
-          onClick={() => {
-            alert('언어 설정 기능이 곧 추가될 예정입니다.');
-          }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
-        >
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
-            </svg>
-            언어
-          </div>
-          <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          </svg>
-        </button>
-
-        <button
           onClick={() => setShowVoiceTest(!showVoiceTest)}
           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
         >
@@ -309,7 +280,79 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
 
         <button
           onClick={() => {
-            alert('도움말 기능이 곧 추가될 예정입니다.');
+            // 도움 받기 팝업 띄우기
+            const helpWindow = window.open(
+              '',
+              'help',
+              'width=600,height=400,scrollbars=yes,resizable=yes'
+            );
+            if (helpWindow) {
+              helpWindow.document.write(`
+                <html>
+                  <head>
+                    <title>FT 도움말</title>
+                    <style>
+                      body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+                      h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                      h2 { color: #555; margin-top: 30px; }
+                      .feature { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+                      .example { background: #e9ecef; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; }
+                    </style>
+                  </head>
+                  <body>
+                    <h1>🎯 FT Assistant 도움말</h1>
+                    
+                    <h2>📚 주요 기능</h2>
+                    <div class="feature">
+                      <strong>농업 관련 질문</strong><br>
+                      작물 재배, 병해충, 토양 관리 등 농업에 관한 모든 질문에 답변해드립니다.
+                    </div>
+                    
+                    <div class="feature">
+                      <strong>정보처리기사 문제 생성</strong><br>
+                      정처기 시험 문제를 자동으로 생성하고 채점해드립니다.
+                    </div>
+                    
+                    <div class="feature">
+                      <strong>음성 기능</strong><br>
+                      음성으로 질문하고 음성으로 답변을 들을 수 있습니다.
+                    </div>
+                    
+                    <h2>💡 사용 예시</h2>
+                    <div class="example">
+                      농업: "오이에 어떤 병해충이 있어?"<br>
+                      정처기: "소프트웨어 설계 3문제 만들어줘"
+                    </div>
+                    
+                    <h2>🎤 음성 사용법</h2>
+                    <div class="feature">
+                      1. 채팅창 옆의 마이크 버튼을 클릭<br>
+                      2. 음성으로 질문하기<br>
+                      3. 자동으로 텍스트로 변환되어 전송됩니다
+                    </div>
+                    
+                    <h2>❓ 문제 해결</h2>
+                    <div class="feature">
+                      <strong>음성이 작동하지 않을 때:</strong><br>
+                      • HTTPS 환경에서 사용해주세요<br>
+                      • 마이크 권한을 허용해주세요<br>
+                      • 설정 > 음성 테스트에서 확인해보세요
+                    </div>
+                    
+                    <div class="feature">
+                      <strong>서버 연결이 안 될 때:</strong><br>
+                      • 백엔드 서버가 실행 중인지 확인해주세요<br>
+                      • 네트워크 연결을 확인해주세요
+                    </div>
+                    
+                    <p style="margin-top: 30px; text-align: center; color: #666;">
+                      더 궁금한 점이 있으시면 언제든 문의해주세요! 🚀
+                    </p>
+                  </body>
+                </html>
+              `);
+              helpWindow.document.close();
+            }
           }}
           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
         >
