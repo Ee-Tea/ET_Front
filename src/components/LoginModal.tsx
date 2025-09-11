@@ -9,6 +9,7 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const AUTH_ORIGIN = typeof window !== 'undefined' ? `http://${window.location.hostname}:8124` : 'http://localhost:8124';
 
   if (!isOpen) return null;
 
@@ -19,9 +20,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     try {
       if (provider === 'Google') {
         // ✅ 8124 직접 호출 (프록시 미사용) — 리다이렉트 URI도 8124
-        const res = await fetch('http://localhost:8124/auth/google', {
+        const res = await fetch(`${AUTH_ORIGIN}/auth/google`, {
           method: 'GET',
           headers: { 'Accept': 'application/json' },
+          credentials: 'include',
         });
         if (!res.ok) throw new Error(`auth/google 실패: ${res.status}`);
 
@@ -35,7 +37,24 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         return;
       }
 
-      if (provider === 'Naver' || provider === 'Kakao') {
+      if (provider === 'Naver') {
+        // ✅ 네이버 OAuth 시작: BFF/auth 서버로부터 auth_url 수신 후 리다이렉트
+        const res = await fetch(`${AUTH_ORIGIN}/auth/naver`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error(`auth/naver 실패: ${res.status}`);
+
+        const data = await res.json();
+        const url = data.auth_url || data.url;
+        if (!url) throw new Error('auth_url 누락');
+
+        window.location.href = url; // 네이버 승인 페이지로 이동
+        return;
+      }
+
+      if (provider === 'Kakao') {
         alert(`${provider} 로그인은 준비 중입니다.`);
       }
     } catch (e) {

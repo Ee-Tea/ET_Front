@@ -20,9 +20,14 @@ const nextConfig: NextConfig = {
     pagesBufferLength: 2,
   },
 
-  // ✅ 프록시: 프론트(3000) → 백엔드(8124)
+  // ✅ 프록시: 프론트(3000) → 백엔드(8124, 8000)
   async rewrites() {
     return [
+      // Auth/BFF → 8124
+      { source: '/auth/:path*', destination: 'http://localhost:8124/auth/:path*' },
+      // Backend core → 8000 (PDF/채팅 등)
+      { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
+      // 기존 /api → 8124 유지 (필요 시)
       { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
     ];
   },
