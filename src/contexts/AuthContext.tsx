@@ -35,6 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchMe = async (label: string) => {
+    // 모바일 페이지에서는 백엔드 연결 시도하지 않음
+    if (window.location.pathname.startsWith('/mobile')) {
+      console.log('[AUTH] 모바일 페이지 - 백엔드 연결 건너뛰기');
+      setIsLoading(false);
+      return;
+    }
+
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
       const res = await fetch(`${AUTH_API}/auth/me`, {
