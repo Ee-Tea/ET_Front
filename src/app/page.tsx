@@ -241,6 +241,26 @@ export default function Home() {
     return hasJpkiKeyword && hasGenerationRequest;
   };
 
+  // 보기 형식 정규화 함수
+  const normalizeOptions = (options: string[]): string[] => {
+    return options.map((option, index) => {
+      // 이미 "숫자. " 형식인 경우 그대로 반환
+      if (option.match(/^\d+\.\s/)) {
+        return option;
+      }
+      // "숫자)" 형식인 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\)\s/)) {
+        return option.replace(/^(\d+)\)\s/, '$1. ');
+      }
+      // 숫자로 시작하는 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\s/)) {
+        return option.replace(/^(\d+)\s/, '$1. ');
+      }
+      // 그 외의 경우 인덱스 기반으로 "숫자. " 형식으로 변환
+      return `${index + 1}. ${option}`;
+    });
+  };
+
   // 문제 파싱 함수
   const parseQuestions = (text: string) => {
     const questions: any[] = [];
@@ -261,7 +281,7 @@ export default function Home() {
             
             for (let i = 1; i < lines.length; i++) {
               const line = lines[i].trim();
-              if (line.match(/^\d+\./)) {
+              if (line.match(/^\d+[\.\)]\s/) || line.match(/^\d+\s/)) {
                 options.push(line);
               } else if (line.includes('정답:') || line.includes('답:')) {
                 correctAnswer = line.replace(/.*(정답|답):\s*/, '');
@@ -271,10 +291,13 @@ export default function Home() {
             }
             
             if (questionText && options.length > 0) {
+              // 보기 형식 정규화
+              const normalizedOptions = normalizeOptions(options);
+              
               questions.push({
                 id: questionId,
                 question: questionText,
-                options: options,
+                options: normalizedOptions,
                 correctAnswer: correctAnswer,
                 explanation: explanation,
                 subject: '정보처리기사',
