@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`${AUTH_API}/api/auth/me`, {
+      const res = await fetch(`${AUTH_ORIGIN}/auth/me`, {
         credentials: 'include',
         headers: {
           'Cache-Control': 'no-cache',

@@ -20,20 +20,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     try {
       if (provider === 'Google') {
-        // ✅ 8124 직접 호출 (프록시 미사용) — 리다이렉트 URI도 8124
-        const res = await fetch('/api/auth/google', {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-        if (!res.ok) throw new Error(`auth/google 실패: ${res.status}`);
-
-        const data = await res.json();
-        const url = data.auth_url || data.url;
-        if (!url) throw new Error('auth_url 누락');
-
-        // 구글 OAuth로 이동 → (인증 후) http://localhost:8124/auth/google/callback 으로 복귀
-        // 콜백에서 8124 도메인에 access_token 쿠키를 심고, 3000으로 302 리다이렉트
-        window.location.href = url;
+        // 상태 쿠키가 Set-Cookie(Lax)로 확실히 저장되도록, 8124로 직접 네비게이션
+        window.location.href = `${AUTH_ORIGIN}/auth/google`;
         return;
       }
 

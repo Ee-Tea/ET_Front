@@ -116,7 +116,7 @@ export default function ChatContainer({
               }
               
               try {
-                const response = await fetch('http://localhost:8000/chat', {
+                const response = await fetch('/backend/chat', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

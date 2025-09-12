@@ -47,7 +47,28 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   const [showVoiceTest, setShowVoiceTest] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
-  // 전역 오류 처리
+  // 데스크탑 감지 및 리다이렉트
+  useEffect(() => {
+    const checkDevice = () => {
+      const isDesktop = window.innerWidth > 768 && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isDesktop) {
+        // 데스크탑인 경우 메인 페이지로 리다이렉트
+        window.location.href = '/';
+      }
+    };
+    
+    checkDevice();
+    
+    // 윈도우 리사이즈 이벤트 리스너 추가
+    window.addEventListener('resize', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+    };
+  }, []);
+
+  // 전역 오류 처리 및 스크롤 방지
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
       if (event.message.includes('message port closed')) {
@@ -56,8 +77,28 @@ const MainPage: React.FC<MainPageProps> = (props) => {
       }
     };
 
+    // 스크롤 방지
+    const preventScroll = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    // body 스크롤 방지
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    };
   }, []);
 
   // 문제 생성 요청인지 확인하는 함수
@@ -96,6 +137,26 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     return hasJpkiKeyword && hasGenerationRequest;
   };
 
+  // 보기 형식 정규화 함수
+  const normalizeOptions = (options: string[]): string[] => {
+    return options.map((option, index) => {
+      // 이미 "숫자. " 형식인 경우 그대로 반환
+      if (option.match(/^\d+\.\s/)) {
+        return option;
+      }
+      // "숫자)" 형식인 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\)\s/)) {
+        return option.replace(/^(\d+)\)\s/, '$1. ');
+      }
+      // 숫자로 시작하는 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\s/)) {
+        return option.replace(/^(\d+)\s/, '$1. ');
+      }
+      // 그 외의 경우 인덱스 기반으로 "숫자. " 형식으로 변환
+      return `${index + 1}. ${option}`;
+    });
+  };
+
   // 문제 파싱 함수
   const parseProblems = (content: string): Problem[] => {
     const problems: Problem[] = [];
@@ -116,7 +177,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
             
             for (let i = 1; i < lines.length; i++) {
               const line = lines[i].trim();
-              if (line.match(/^\d+\./)) {
+              if (line.match(/^\d+[\.\)]\s/) || line.match(/^\d+\s/)) {
                 options.push(line);
               } else if (line.includes('정답:') || line.includes('답:')) {
                 correctAnswer = line.replace(/.*(정답|답):\s*/, '');
@@ -126,11 +187,14 @@ const MainPage: React.FC<MainPageProps> = (props) => {
             }
             
             if (questionText && options.length > 0) {
+              // 보기 형식 정규화
+              const normalizedOptions = normalizeOptions(options);
+              
               problems.push({
                 id: questionId,
                 question: questionText,
                 type: 'multiple' as const,
-                options: options,
+                options: normalizedOptions,
                 correctAnswer: correctAnswer,
                 explanation: explanation
               });
@@ -304,102 +368,103 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   };
 
   return (
-    <div className="w-full h-screen bg-white flex flex-col mobile-container mobile-safe-area">
+    <div className="w-full h-screen bg-gray-300 flex flex-col overflow-hidden" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
         {/* 상단 헤더 */}
-        <div className="pt-4 px-6 flex items-center justify-between">
-          {/* 왼쪽: FT 로고와 사용자 정보 */}
-          <div className="flex items-center gap-3">
-            <Image 
-              src="/FT-logo.png" 
-              alt="FT" 
-              width={32} 
-              height={32} 
-              className="object-contain"
-            />
-            {isLoggedIn && user && (
-              <div className="flex items-center gap-2">
-                {user?.picture && (
-                  <Image 
-                    src={user.picture} 
-                    alt={user?.name || 'User'} 
-                    width={24} 
-                    height={24} 
-                    className="rounded-full"
-                  />
-                )}
-                <span className="text-sm text-gray-600 font-medium">
-                  {user?.name || 'User'}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          {/* 오른쪽: 백엔드 상태, 웹모드 버튼과 설정 버튼 */}
-          <div className="flex items-center gap-2">
+        <div className="h-16 bg-gray-300 flex items-center justify-center">
+          <div className="px-6 py-3 flex items-center justify-between w-full">
+            {/* 왼쪽: 빈 공간 */}
+            <div className="w-16"></div>
             
-            {/* 웹모드 버튼 */}
-            <button
-              onClick={() => window.location.href = '/'}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors mobile-button"
-              title="웹모드로 이동"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </button>
+            {/* 중앙: FT 로고 */}
+            <div className="flex-1 flex justify-center ml-2 -mt-1">
+              <Image 
+                src="/FT-logo.png" 
+                alt="FT" 
+                width={40} 
+                height={40} 
+                className="object-contain"
+              />
+            </div>
             
-            {/* 설정 버튼 */}
-            <button
-              onClick={() => setShowSettingsMenu(true)}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors mobile-button"
-              title="설정"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
+            {/* 오른쪽: 웹모드 버튼과 설정 버튼 */}
+            <div className="flex items-center gap-2 w-16 justify-end">
+              {/* 웹모드 버튼 */}
+              <button
+                onClick={() => window.location.href = '/'}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors mobile-button"
+                title="웹모드로 이동"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </button>
+              
+              {/* 설정 버튼 */}
+              <button
+                onClick={() => setShowSettingsMenu(true)}
+                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors mobile-button"
+                title="설정"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
-        
-        {/* 탭 네비게이션 */}
-        {messages.length > 0 && (
-          <div className="px-4 py-2 border-b border-gray-200">
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setCurrentView('chat')}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  currentView === 'chat'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                채팅 페이지
-              </button>
-              {problems.length > 0 && (
+
+        {/* 메인 콘텐츠 영역 - 위로 겹치는 부분 */}
+        <div className="relative -mt-2 bg-white rounded-t-3xl shadow-lg flex flex-col h-[calc(100vh-4rem)]">
+          {/* 탭 네비게이션 */}
+          {messages.length > 0 && (
+            <div className="px-4 py-2 border-b border-gray-200">
+              <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={() => setCurrentView('problems')}
+                  onClick={() => setCurrentView('chat')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    currentView === 'problems'
+                    currentView === 'chat'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  문제 페이지
+                  채팅 페이지
                 </button>
-              )}
+                {problems.length > 0 && (
+                  <button
+                    onClick={() => setCurrentView('problems')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      currentView === 'problems'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    문제 페이지
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 메인 콘텐츠 영역 */}
-        <div className="flex-1 overflow-hidden">
+          {/* 채팅/문제 영역 */}
+          <div className="flex-1 overflow-hidden">
           {currentView === 'chat' ? (
             /* 채팅 화면 */
             <div className="h-full flex flex-col">
               {messages.length === 0 ? (
                 /* 초기 화면 */
                 <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+                  {/* FT 로고 */}
+                  <div className="mb-6">
+                    <Image 
+                      src="/FT-logo.png" 
+                      alt="FT" 
+                      width={80} 
+                      height={80} 
+                      className="object-contain"
+                    />
+                  </div>
+                  
                   {/* 인사말 */}
                   <div className="text-lg font-bold text-black mb-4">
                     안녕하세요! FT입니다
@@ -415,28 +480,13 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                     <div className="text-sm font-medium text-gray-700 mb-3 text-center">
                       예시 질문:
                     </div>
-                    <div className="space-y-2">
-                      <button 
-                        onClick={() => setQuestion("오이에는 어떤 병해충이 있어?")}
-                        className="w-full text-sm text-black flex items-center justify-center hover:bg-gray-50 rounded-lg py-2 transition-colors"
-                      >
-                        <span className="w-2 h-2 bg-green-600 rounded-full mr-2"></span>
-                        농사: "오이에는 어떤 병해충이 있어?"
-                      </button>
-                      <button 
-                        onClick={() => setQuestion("소프트웨어 설계 3문제 만들어줘")}
-                        className="w-full text-sm text-black flex items-center justify-center hover:bg-gray-50 rounded-lg py-2 transition-colors"
-                      >
-                        <span className="w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
-                        정처기: "소프트웨어 설계 3문제 만들어줘"
-                      </button>
-                      <button 
-                        onClick={() => setQuestion("데이터베이스 5문제 만들어줘")}
-                        className="w-full text-sm text-black flex items-center justify-center hover:bg-gray-50 rounded-lg py-2 transition-colors"
-                      >
-                        <span className="w-2 h-2 bg-purple-600 rounded-full mr-2"></span>
-                        정처기: "데이터베이스 5문제 만들어줘"
-                      </button>
+                    <div className="space-y-3 text-center">
+                      <div className="text-sm text-gray-600">
+                        <span className="font-bold">농사:</span> "오이에는 어떤 병해충이 있어?"
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <span className="font-bold">정보처리기사:</span> "소프트웨어 설계 3문제 만들어줘"
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -560,9 +610,9 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           )}
         </div>
         
-        {/* 하단 입력 바 */}
-        <div className="px-4 pb-6 mobile-safe-area">
-          <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+          {/* 입력 영역 */}
+          <div className="border-t border-gray-100 p-4 pb-8 flex items-center gap-2">
+            <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center gap-3 flex-1">
             {/* FT 로고 */}
             <Image 
               src="/FT-logo.png" 
@@ -572,54 +622,55 @@ const MainPage: React.FC<MainPageProps> = (props) => {
               className="object-contain"
             />
             
-            {/* 텍스트 입력 필드 */}
-            <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    // 폼 제출 트리거
-                    const form = e.currentTarget.closest('form');
-                    if (form) {
-                      form.requestSubmit();
+              {/* 텍스트 입력 필드 */}
+              <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-3">
+                <input
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // 폼 제출 트리거
+                      const form = e.currentTarget.closest('form');
+                      if (form) {
+                        form.requestSubmit();
+                      }
                     }
-                  }
-                }}
-                placeholder="질문을 입력해 주세요."
-                className="flex-1 bg-transparent border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm"
-              />
-              
-              {/* 마이크 버튼 */}
-              <MobileVoiceInput
-                onTranscript={handleVoiceTranscript}
-                disabled={false}
-              />
-              
-              {/* 전송 버튼 */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="p-2 text-gray-500 hover:text-gray-700 transition-colors mobile-button disabled:opacity-50"
-                aria-label="전송"
-              >
-                <svg 
-                  className="w-5 h-5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
+                  }}
+                  placeholder="질문을 입력해 주세요."
+                  className="flex-1 bg-transparent border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm"
+                />
+                
+                {/* 마이크 버튼 */}
+                <MobileVoiceInput
+                  onTranscript={handleVoiceTranscript}
+                  disabled={false}
+                />
+                
+                {/* 전송 버튼 */}
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="p-2 text-gray-500 hover:text-gray-700 transition-colors mobile-button disabled:opacity-50"
+                  aria-label="전송"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
-                  />
-                </svg>
-              </button>
-            </form>
+                  <svg 
+                    className="w-5 h-5" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
+                    />
+                  </svg>
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 
