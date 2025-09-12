@@ -87,10 +87,10 @@ export default function Home() {
         const response = await fetch('/backend/health');
         setIsBackendConnected(response.ok);
       } catch (error) {
+        console.error('Backend connection check failed:', error);
         setIsBackendConnected(false);
       }
     };
-
 
     checkBackendConnection();
 

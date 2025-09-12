@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
       { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
       // 기존 /api → 8124 유지 (필요 시)
       { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
+      // 채팅/PDF 서버 (8000) 프록시
+      { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
     ];
   },
 };
