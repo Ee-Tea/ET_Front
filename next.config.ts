@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
       { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
       // 채팅/PDF 서버 (8000) 프록시
       { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
+       
     ];
   },
 };

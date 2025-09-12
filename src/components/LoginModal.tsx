@@ -9,6 +9,8 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
+  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
   if (!isOpen) return null;
 
@@ -35,9 +37,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         return;
       }
 
-      if (provider === 'Naver' || provider === 'Kakao') {
-        alert(`${provider} 로그인은 준비 중입니다.`);
+      if (provider === 'Naver') {
+        window.location.href = `${AUTH_ORIGIN}/auth/naver`;
+        return;
       }
+
+      if (provider === 'Kakao') {
+        window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
+        return;
+      }
+
     } catch (e) {
       console.error('소셜 로그인 시작 실패:', e);
       setIsLoading(false);
