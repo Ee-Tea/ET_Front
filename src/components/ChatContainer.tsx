@@ -429,7 +429,7 @@ export default function ChatContainer({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="질문을 입력해주세요."
+            placeholder={message ? "" : "질문을 입력해주세요."}
             className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
             disabled={isLoading || !isBackendConnected}
           />
