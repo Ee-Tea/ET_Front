@@ -9,7 +9,7 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  // 혼합 호스트( localhost vs 172.29.208.1 )로 인한 state/쿠키 불일치 방지를 위해 고정
+  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
   const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
   if (!isOpen) return null;
@@ -34,6 +34,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
         return;
       }
+
     } catch (e) {
       console.error('소셜 로그인 시작 실패:', e);
       setIsLoading(false);
