@@ -19,10 +19,10 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-
 // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
 const AUTH_ORIGIN = 'http://172.29.208.1:8124';
+// 동일 오리진 프록시 사용: /api 로 호출
+const AUTH_API = ''; // Next.js 프록시를 통해 /api 경로 사용
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
         return;
       }
+      console.error('[AUTH] /auth/me 에러:', e);
       setUser(null);
       localStorage.removeItem('user');
     }
@@ -116,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem('user');
   };
+
 
   const value = { user, isLoggedIn: !!user, login, logout, isLoading };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
