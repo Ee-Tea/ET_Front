@@ -9,6 +9,8 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  // 혼합 호스트( localhost vs 172.29.208.1 )로 인한 state/쿠키 불일치 방지를 위해 고정
+  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
   if (!isOpen) return null;
 
@@ -18,25 +20,19 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     try {
       if (provider === 'Google') {
-        // ✅ 8124 직접 호출 (프록시 미사용) — 리다이렉트 URI도 8124
-        const res = await fetch('/api/auth/google', {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-        if (!res.ok) throw new Error(`auth/google 실패: ${res.status}`);
-
-        const data = await res.json();
-        const url = data.auth_url || data.url;
-        if (!url) throw new Error('auth_url 누락');
-
-        // 구글 OAuth로 이동 → (인증 후) http://localhost:8124/auth/google/callback 으로 복귀
-        // 콜백에서 8124 도메인에 access_token 쿠키를 심고, 3000으로 302 리다이렉트
-        window.location.href = url;
+        // 상태 쿠키가 Set-Cookie(Lax)로 확실히 저장되도록, 8124로 직접 네비게이션
+        window.location.href = `${AUTH_ORIGIN}/auth/google`;
         return;
       }
 
-      if (provider === 'Naver' || provider === 'Kakao') {
-        alert(`${provider} 로그인은 준비 중입니다.`);
+      if (provider === 'Naver') {
+        window.location.href = `${AUTH_ORIGIN}/auth/naver`;
+        return;
+      }
+
+      if (provider === 'Kakao') {
+        window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
+        return;
       }
     } catch (e) {
       console.error('소셜 로그인 시작 실패:', e);
