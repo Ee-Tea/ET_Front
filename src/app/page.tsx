@@ -13,6 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isFarmingRelated } from '@/utils/farmingDetection';
 import { extractAuthCodeFromUrl, extractErrorFromUrl } from '@/utils/googleAuth';
 
+// 모바일 감지 함수
+const isMobile = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 // 메인 페이지 컴포넌트
 export default function Home() {
   const { user, isLoggedIn, isLoading } = useAuth();
@@ -20,6 +26,29 @@ export default function Home() {
   const [testSessions, setTestSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  
+  // 모바일 감지 및 리다이렉트
+  useEffect(() => {
+    const checkDevice = () => {
+      const mobile = isMobile();
+      setIsMobileDevice(mobile);
+      
+      if (mobile) {
+        // 모바일인 경우 모바일 페이지로 리다이렉트
+        window.location.href = '/mobile';
+      }
+    };
+    
+    checkDevice();
+    
+    // 윈도우 리사이즈 이벤트 리스너 추가
+    window.addEventListener('resize', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+    };
+  }, []);
   
   // 문제 관련 상태
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
@@ -569,9 +598,9 @@ export default function Home() {
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
-          <div className="w-full max-w-lg min-w-80 h-3/5 min-h-[450px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
+          <div className="w-full max-w-lg min-w-80 h-1/2 min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
             {/* 헤더 */}
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center pt-16 pb-2">
               <img 
                 src="/FT-logo.png" 
                 alt="FT Assistant" 
@@ -583,7 +612,7 @@ export default function Home() {
             {/* 메인 컨텐츠 */}
             <div className="flex-1 flex flex-col items-center justify-center px-2">
               {/* 환영 메시지 */}
-              <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-12 text-center">
                 안녕하세요!
               </h1>
               
