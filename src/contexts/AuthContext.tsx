@@ -20,8 +20,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 동일 오리진 프록시 사용: /api 로 호출
-const AUTH_API = ''; // Next.js 프록시를 통해 /api 경로 사용
+
+// 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
+const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,8 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`${AUTH_API}/api/auth/me`, {
+      const res = await fetch(`${AUTH_ORIGIN}/auth/me`, {
         credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
       });
       if (!res.ok) {
         console.warn('[AUTH] /auth/me 실패:', res.status, await safeText(res));
@@ -93,10 +98,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const res = await fetch(`${AUTH_ORIGIN}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
+      // 응답 간단 확인
+      if (!res.ok) {
+        console.warn('[AUTH] /auth/logout 실패:', res.status);
+      }
+    } catch {}
     setUser(null);
     localStorage.removeItem('user');
-    // 필요시 서버 로그아웃 API 호출
   };
 
   const value = { user, isLoggedIn: !!user, login, logout, isLoading };

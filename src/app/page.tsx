@@ -84,14 +84,8 @@ export default function Home() {
   useEffect(() => {
     const checkBackendConnection = async () => {
       try {
-        // 내부 API 헬스체크 엔드포인트 사용
-        const response = await fetch('/api/health');
-        if (response.ok) {
-          const data = await response.json();
-          setIsBackendConnected(data.status === 'healthy');
-        } else {
-          setIsBackendConnected(false);
-        }
+        const response = await fetch('/backend/health');
+        setIsBackendConnected(response.ok);
       } catch (error) {
         console.error('Backend connection check failed:', error);
         setIsBackendConnected(false);
