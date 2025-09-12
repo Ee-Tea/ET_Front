@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "FT",
   description: "농업 자격증 및 교육 관련 AI 에이전트",
+  themeColor: "#9CA3AF", // gray-400 색상
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
