@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { LoginModal } from './LoginModal';
+import { HelpModal } from './HelpModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { FrontendVoiceService } from '../services/frontendVoiceService';
 
@@ -13,6 +14,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsPanelProps) {
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [showVoiceTest, setShowVoiceTest] = useState(false);
   const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [voiceTestResult, setVoiceTestResult] = useState<string>('');
@@ -279,81 +281,7 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
         </button>
 
         <button
-          onClick={() => {
-            // 도움 받기 팝업 띄우기
-            const helpWindow = window.open(
-              '',
-              'help',
-              'width=600,height=400,scrollbars=yes,resizable=yes'
-            );
-            if (helpWindow) {
-              helpWindow.document.write(`
-                <html>
-                  <head>
-                    <title>FT 도움말</title>
-                    <style>
-                      body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-                      h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-                      h2 { color: #555; margin-top: 30px; }
-                      .feature { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
-                      .example { background: #e9ecef; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; }
-                    </style>
-                  </head>
-                  <body>
-                    <h1>🎯 FT Assistant 도움말</h1>
-                    
-                    <h2>📚 주요 기능</h2>
-                    <div class="feature">
-                      <strong>농업 관련 질문</strong><br>
-                      작물 재배, 병해충, 토양 관리 등 농업에 관한 모든 질문에 답변해드립니다.
-                    </div>
-                    
-                    <div class="feature">
-                      <strong>정보처리기사 문제 생성</strong><br>
-                      정처기 시험 문제를 자동으로 생성하고 채점해드립니다.
-                    </div>
-                    
-                    <div class="feature">
-                      <strong>음성 기능</strong><br>
-                      음성으로 질문하고 음성으로 답변을 들을 수 있습니다.
-                    </div>
-                    
-                    <h2>💡 사용 예시</h2>
-                    <div class="example">
-                      농업: "오이에 어떤 병해충이 있어?"<br>
-                      정처기: "소프트웨어 설계 3문제 만들어줘"
-                    </div>
-                    
-                    <h2>🎤 음성 사용법</h2>
-                    <div class="feature">
-                      1. 채팅창 옆의 마이크 버튼을 클릭<br>
-                      2. 음성으로 질문하기<br>
-                      3. 자동으로 텍스트로 변환되어 전송됩니다
-                    </div>
-                    
-                    <h2>❓ 문제 해결</h2>
-                    <div class="feature">
-                      <strong>음성이 작동하지 않을 때:</strong><br>
-                      • HTTPS 환경에서 사용해주세요<br>
-                      • 마이크 권한을 허용해주세요<br>
-                      • 설정 > 음성 테스트에서 확인해보세요
-                    </div>
-                    
-                    <div class="feature">
-                      <strong>서버 연결이 안 될 때:</strong><br>
-                      • 백엔드 서버가 실행 중인지 확인해주세요<br>
-                      • 네트워크 연결을 확인해주세요
-                    </div>
-                    
-                    <p style="margin-top: 30px; text-align: center; color: #666;">
-                      더 궁금한 점이 있으시면 언제든 문의해주세요! 🚀
-                    </p>
-                  </body>
-                </html>
-              `);
-              helpWindow.document.close();
-            }
-          }}
+          onClick={() => setShowHelpModal(true)}
           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
         >
           <svg className="w-4 h-4 mr-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
@@ -503,6 +431,12 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
+      />
+
+      {/* 도움말 모달 */}
+      <HelpModal 
+        isOpen={showHelpModal} 
+        onClose={() => setShowHelpModal(false)} 
       />
     </div>
   );

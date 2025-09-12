@@ -116,7 +116,7 @@ export const exchangeCodeForToken = async (code: string): Promise<any> => {
   try {
     console.log('백엔드로 인증 코드 전송:', code);
     
-    const response = await fetch('http://localhost:8124/auth/google/callback', {
+    const response = await fetch('/api/auth/google/callback', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,10 +136,10 @@ export const exchangeCodeForToken = async (code: string): Promise<any> => {
     throw error;
   }
 };
-export const AUTH_API = process.env.NEXT_PUBLIC_AUTH_API ?? 'http://localhost:8124';
+export const AUTH_API = process.env.NEXT_PUBLIC_AUTH_API ?? '';
 
 export async function startGoogleLogin() {
-  const res = await fetch(`${AUTH_API}/auth/google`, { credentials: 'include' });
+  const res = await fetch(`${AUTH_API}/api/auth/google`, { credentials: 'include' });
   const { auth_url } = await res.json();
   window.location.href = auth_url; // 구글로 이동 → 백엔드 콜백으로 복귀
 }

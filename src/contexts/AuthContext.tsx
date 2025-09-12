@@ -20,6 +20,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+
 // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
 const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
@@ -35,6 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchMe = async (label: string) => {
+    // 모바일 페이지에서도 인증 확인은 시도하되, 실패해도 계속 진행
+    if (window.location.pathname.startsWith('/mobile')) {
+      console.log('[AUTH] 모바일 페이지 - 인증 확인 시도');
+    }
+
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
       const res = await fetch(`${AUTH_ORIGIN}/auth/me`, {
@@ -56,6 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('user', JSON.stringify(me));
     } catch (e) {
       console.error('[AUTH] /auth/me 에러:', e);
+      // 모바일 페이지에서는 인증 실패해도 계속 진행
+      if (window.location.pathname.startsWith('/mobile')) {
+        console.log('[AUTH] 모바일 페이지 - 인증 실패해도 계속 진행');
+        setIsLoading(false);
+        return;
+      }
       setUser(null);
       localStorage.removeItem('user');
     }
