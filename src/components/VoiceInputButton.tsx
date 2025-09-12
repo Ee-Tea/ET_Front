@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { VoiceService } from '../services/voiceService';
+import { FrontendVoiceService } from '../services/frontendVoiceService';
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string) => void;
@@ -7,47 +7,23 @@ interface VoiceInputButtonProps {
 }
 
 export default function VoiceInputButton({ onTranscript, disabled = false }: VoiceInputButtonProps) {
-  const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isListening, setIsListening] = useState(false);
+  const maxRetries = 3;
 
-  // 녹음 시간 타이머
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      setRecordingTime(0);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isRecording]);
 
   // 브라우저 지원 여부 확인
   useEffect(() => {
     const checkSupport = () => {
       if (typeof window !== 'undefined') {
-        const supported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        const supported = !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition);
         setIsSupported(supported);
         
         if (!supported) {
-          setError('이 브라우저는 마이크 접근을 지원하지 않습니다. HTTPS 환경에서 사용해주세요.');
+          setError('이 브라우저는 Web Speech API를 지원하지 않습니다. Chrome, Edge, Safari를 사용해주세요.');
         }
       }
     };
@@ -55,212 +31,176 @@ export default function VoiceInputButton({ onTranscript, disabled = false }: Voi
     checkSupport();
   }, []);
 
-  // 컴포넌트 언마운트 시 정리
-  useEffect(() => {
-    return () => {
-      stopRecording();
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   const startRecording = async () => {
     try {
       setError(null);
+      setIsProcessing(true);
+      setIsListening(true);
       
-      // 브라우저 지원 확인
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('이 브라우저는 마이크 접근을 지원하지 않습니다.');
-      }
+      console.log(`🎤 음성 인식 시도 ${retryCount + 1}/${maxRetries + 1}`);
       
-      // 마이크 권한 요청
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        } 
-      });
+      // Web Speech API를 사용한 음성 인식 (API 키 불필요)
+      const response = await FrontendVoiceService.speechToTextWebSpeech('ko-KR');
       
-      streamRef.current = stream;
-      
-      // MediaRecorder 설정 - WAV 형식 우선 시도
-      let mediaRecorder: MediaRecorder;
-      if (MediaRecorder.isTypeSupported('audio/wav')) {
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/wav' });
-      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/mp4' });
+      if (response.success && response.text) {
+        console.log('🎤 음성 인식 결과:', response.text);
+        onTranscript(response.text);
+        setRetryCount(0); // 성공 시 재시도 카운트 리셋
       } else {
-        mediaRecorder = new MediaRecorder(stream);
+        throw new Error('음성을 인식할 수 없습니다.');
       }
-      
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      
-      // 녹음 데이터 수집
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      
-      // 녹음 완료 처리
-      mediaRecorder.onstop = async () => {
-        try {
-          setIsProcessing(true);
-          
-          // 오디오 데이터를 Blob으로 변환
-          const mimeType = mediaRecorder.mimeType || 'audio/webm';
-          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-          
-          console.log('🎤 녹음 완료:', {
-            size: audioBlob.size,
-            type: audioBlob.type,
-            chunks: audioChunksRef.current.length
-          });
-          
-          // STT API 호출
-          const response = await VoiceService.speechToText(audioBlob, 'ko');
-          
-          if (response.success && response.text) {
-            console.log('🎤 음성 인식 결과:', response.text);
-            onTranscript(response.text);
-          } else {
-            setError('음성을 인식할 수 없습니다.');
-          }
-        } catch (error) {
-          console.error('STT 처리 실패:', error);
-          
-          if (error instanceof Error) {
-            if (error.message.includes('STT 서버 오류')) {
-              setError('음성 서비스 서버가 실행되지 않았습니다. 서버를 확인해주세요.');
-            } else if (error.message.includes('STT API를 찾을 수 없습니다')) {
-              setError('음성 서비스 서버를 찾을 수 없습니다. 서버를 실행해주세요.');
-            } else {
-              setError(`음성 인식 중 오류가 발생했습니다: ${error.message}`);
-            }
-          } else {
-            setError('음성 인식 중 알 수 없는 오류가 발생했습니다.');
-          }
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-      
-      // 녹음 시작
-      mediaRecorder.start(1000); // 1초마다 데이터 수집
-      setIsRecording(true);
-      
     } catch (error) {
-      console.error('녹음 시작 실패:', error);
+      console.error('STT 처리 실패:', error);
+      
+      let errorMessage = '음성 인식 중 오류가 발생했습니다.';
+      let shouldRetry = false;
       
       if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
-          setError('마이크 접근 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
-        } else if (error.name === 'NotFoundError') {
-          setError('마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.');
-        } else if (error.name === 'NotSupportedError') {
-          setError('이 브라우저는 마이크 접근을 지원하지 않습니다.');
+        if (error.message.includes('Web Speech API를 지원하지 않습니다')) {
+          errorMessage = '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome, Edge, Safari를 사용해주세요.';
+        } else if (error.message.includes('마이크 접근 권한이 거부되었습니다')) {
+          errorMessage = '마이크 접근 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.';
+        } else if (error.message.includes('음성이 감지되지 않았습니다') || 
+                   error.message.includes('음성 인식 시간이 초과되었습니다')) {
+          shouldRetry = true;
+          errorMessage = `음성이 감지되지 않았습니다. 마이크에 더 가까이서 말씀해주세요. (${retryCount + 1}/${maxRetries + 1})`;
+        } else if (error.message.includes('음성이 명확하지 않습니다')) {
+          shouldRetry = true;
+          errorMessage = `음성이 명확하지 않습니다. 더 천천히 말씀해주세요. (${retryCount + 1}/${maxRetries + 1})`;
+        } else if (error.message.includes('음성이 너무 짧습니다')) {
+          shouldRetry = true;
+          errorMessage = `음성이 너무 짧습니다. 더 길게 말씀해주세요. (${retryCount + 1}/${maxRetries + 1})`;
+        } else if (error.message.includes('네트워크 연결에 문제가 있습니다')) {
+          shouldRetry = true;
+          errorMessage = `네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요. (${retryCount + 1}/${maxRetries + 1})`;
+        } else if (error.message.includes('마이크에 접근할 수 없습니다')) {
+          errorMessage = '마이크에 접근할 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.';
+        } else if (error.message.includes('HTTPS 환경에서 사용해주세요')) {
+          errorMessage = 'HTTPS 환경에서 사용해주세요.';
         } else {
-          setError(`마이크 접근 오류: ${error.message}`);
+          errorMessage = `음성 인식 중 오류가 발생했습니다: ${error.message}`;
         }
       } else {
-        setError('마이크 접근 중 알 수 없는 오류가 발생했습니다.');
+        errorMessage = '음성 인식 중 알 수 없는 오류가 발생했습니다.';
       }
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-    
-    // 스트림 정리
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+      
+      setError(errorMessage);
+      
+      // 재시도 가능한 오류이고 최대 재시도 횟수에 도달하지 않은 경우
+      if (shouldRetry && retryCount < maxRetries) {
+        setRetryCount(prev => prev + 1);
+        console.log(`🔄 ${retryCount + 1}초 후 재시도...`);
+        
+        setTimeout(() => {
+          if (retryCount < maxRetries) {
+            startRecording();
+          }
+        }, 2000); // 2초 후 재시도
+      } else if (retryCount >= maxRetries) {
+        setError('음성 인식에 여러 번 실패했습니다. 마이크 설정을 확인해주세요.');
+        setRetryCount(0);
+      }
+    } finally {
+      setIsProcessing(false);
+      setIsListening(false);
     }
   };
 
   const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
+    if (isProcessing) {
+      return; // 처리 중이면 무시
     }
+    setRetryCount(0); // 새로 시작할 때 재시도 카운트 리셋
+    startRecording();
+  };
+
+  const resetError = () => {
+    setError(null);
+    setRetryCount(0);
   };
 
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
-    <div className="flex flex-col items-center">
-      <button
-        onClick={toggleRecording}
-        disabled={disabled || isProcessing || isSupported === false}
-        className={`
-          relative w-12 h-12 rounded-full flex items-center justify-center
-          transition-all duration-200 transform hover:scale-105
-          ${isRecording 
-            ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'
+    <div className="flex flex-col items-center space-y-3">
+      <div className="flex items-center space-x-3">
+        <button
+          onClick={toggleRecording}
+          disabled={disabled || isProcessing || isSupported === false}
+          className={`
+            relative w-8 h-8 flex items-center justify-center
+            transition-colors duration-200
+            ${isListening 
+              ? 'text-red-500' 
+              : isProcessing
+              ? 'text-blue-500' 
+              : 'text-gray-600 hover:text-gray-800'
+            }
+            ${disabled || isProcessing || isSupported === false ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          `}
+          title={
+            isSupported === false 
+              ? '음성 인식이 지원되지 않습니다' 
+              : isListening
+              ? '듣고 있습니다... 말씀해주세요'
+              : isProcessing
+              ? '음성 인식 중...'
+              : '음성 입력 시작'
           }
-          ${disabled || isProcessing || isSupported === false ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          shadow-lg hover:shadow-xl
-        `}
-        title={
-          isSupported === false 
-            ? '마이크 접근이 지원되지 않습니다' 
-            : isRecording 
-            ? '녹음 중지' 
-            : '음성 입력 시작'
-        }
-      >
-        {isProcessing ? (
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-        ) : isRecording ? (
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
-        ) : (
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-          </svg>
-        )}
-      </button>
-      
-      {/* 녹음 시간 표시 */}
-      {isRecording && (
-        <div className="mt-2 text-xs text-red-500 font-medium">
-          {formatTime(recordingTime)}
-        </div>
-      )}
+        </button>
+
+      </div>
       
       {/* 처리 중 표시 */}
       {isProcessing && (
-        <div className="mt-2 text-xs text-blue-500 font-medium">
-          음성 인식 중...
+        <div className="mt-2 text-xs font-medium text-center">
+          {isListening ? (
+            <div className="text-red-500 flex items-center space-x-1">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span>듣고 있습니다... 말씀해주세요</span>
+            </div>
+          ) : (
+            <div className="text-blue-500 flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span>음성 인식 중...</span>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* 재시도 표시 */}
+      {retryCount > 0 && retryCount <= maxRetries && (
+        <div className="mt-2 text-xs text-yellow-600 font-medium text-center">
+          재시도 중... ({retryCount}/{maxRetries})
         </div>
       )}
       
       {/* 에러 메시지 */}
       {error && (
-        <div className="mt-2 text-xs text-red-500 font-medium max-w-40 text-center">
-          {error}
+        <div className="mt-2 text-xs text-red-500 font-medium max-w-48 text-center">
+          <div className="flex items-center justify-center space-x-1">
+            <span>{error}</span>
+            <button
+              onClick={resetError}
+              className="text-red-400 hover:text-red-600 ml-1"
+              title="오류 메시지 닫기"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
       
       {/* 지원되지 않는 브라우저 안내 */}
       {isSupported === false && (
-        <div className="mt-2 text-xs text-gray-500 text-center max-w-40">
+        <div className="mt-2 text-xs text-gray-500 text-center max-w-48">
           HTTPS 환경에서 사용해주세요
         </div>
       )}

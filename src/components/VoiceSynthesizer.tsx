@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { VoiceService } from '../services/voiceService';
+import { FrontendVoiceService } from '../services/frontendVoiceService';
 import { TTSResponse, VoiceSettings } from '../types/voice';
 
 interface VoiceSynthesizerProps {
@@ -44,18 +44,10 @@ export default function VoiceSynthesizer({ text = '', onTextChange, disabled = f
     setError('');
     
     try {
-      const response: TTSResponse = await VoiceService.textToSpeech(inputText, voiceSettings);
+      const response: TTSResponse = await FrontendVoiceService.textToSpeech(inputText, voiceSettings);
       
       if (response.success) {
-        if (response.audio_url) {
-          // 음성 파일 다운로드
-          const audioBlob = await VoiceService.downloadTTSAudio(response.audio_url);
-          const url = URL.createObjectURL(audioBlob);
-          setAudioUrl(url);
-          
-          // 자동 재생
-          playAudio(url);
-        } else if (response.audio_data) {
+        if (response.audio_data) {
           // base64 오디오 데이터를 URL로 변환
           const audioBlob = new Blob([
             Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))
@@ -74,7 +66,14 @@ export default function VoiceSynthesizer({ text = '', onTextChange, disabled = f
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '음성 생성 중 오류가 발생했습니다';
-      setError(errorMessage);
+      
+      if (errorMessage.includes('RealTans API 키가 설정되지 않았습니다')) {
+        setError('RealTans API 키를 설정해주세요. 설정 패널에서 API 키를 입력하세요.');
+      } else if (errorMessage.includes('RealTans TTS API 오류')) {
+        setError('RealTans TTS API 오류가 발생했습니다. API 키를 확인해주세요.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsGenerating(false);
     }
