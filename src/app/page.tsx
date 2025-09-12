@@ -10,8 +10,9 @@ import { VoicePanel } from '@/components/VoicePanel';
 import { LoginModal } from '@/components/LoginModal';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import { useAuth } from '@/contexts/AuthContext';
-import { isFarmingRelated } from '@/utils/farmingDetection';
+import { isFarmingRelated, isFarmingQuestion } from '@/utils/farmingDetection';
 import { extractAuthCodeFromUrl, extractErrorFromUrl } from '@/utils/googleAuth';
+import { FrontendVoiceService } from '@/services/frontendVoiceService';
 
 // 모바일 감지 함수
 const isMobile = () => {
@@ -81,6 +82,8 @@ export default function Home() {
   // 음성 관련 상태
   const [showVoicePanel, setShowVoicePanel] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [isPlayingFarmingTTS, setIsPlayingFarmingTTS] = useState(false);
+  const [farmingTTSAudio, setFarmingTTSAudio] = useState<HTMLAudioElement | null>(null);
   
   // 사이드바 토글 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -481,6 +484,66 @@ export default function Home() {
     setIsProblemRequest(false);
   };
 
+  // 농사 관련 질문 TTS 함수
+  const handleFarmingTTS = async (text: string) => {
+    if (!text || !isFarmingQuestion(text)) {
+      return;
+    }
+
+    try {
+      setIsPlayingFarmingTTS(true);
+      
+      // 기존 오디오가 재생 중이면 정지
+      if (farmingTTSAudio) {
+        farmingTTSAudio.pause();
+        farmingTTSAudio.currentTime = 0;
+      }
+
+      const response = await FrontendVoiceService.textToSpeech(text, {
+        language: 'ko',
+        voice: 'default',
+        speed: 1.0,
+        pitch: 1.0,
+        volume: 0.9
+      });
+
+      if (response.success && response.audio_data) {
+        // base64 오디오 데이터를 URL로 변환
+        const audioBlob = new Blob([
+          Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))
+        ], { type: 'audio/wav' });
+        
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        
+        audio.onplay = () => setIsPlayingFarmingTTS(true);
+        audio.onended = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        
+        setFarmingTTSAudio(audio);
+        await audio.play();
+      }
+    } catch (error) {
+      console.error('농사 관련 TTS 오류:', error);
+      setIsPlayingFarmingTTS(false);
+    }
+  };
+
+  // 농사 관련 질문 TTS 정지
+  const stopFarmingTTS = () => {
+    if (farmingTTSAudio) {
+      farmingTTSAudio.pause();
+      farmingTTSAudio.currentTime = 0;
+      setIsPlayingFarmingTTS(false);
+    }
+  };
+
   // PDF 컨테이너 열기
   const handleOpenPdfContainer = () => {
     setShowPdfContainer(true);
@@ -774,7 +837,7 @@ export default function Home() {
               onOpenSettings={() => {}}
               onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
               onVoiceTranscript={handleVoiceTranscript}
-              onFarmingTTS={playFarmingTTS}
+              onFarmingTTS={handleFarmingTTS}
               isBackendConnected={isBackendConnected}
               isSidebarOpen={isSidebarOpen}
               onLayoutExpansion={handleLayoutExpansion}

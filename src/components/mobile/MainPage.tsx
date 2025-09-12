@@ -7,6 +7,8 @@ import { MobileLoginModal } from './MobileLoginModal';
 import { MobileVoiceInput } from './MobileVoiceInput';
 import { MobileVoiceTest } from './MobileVoiceTest';
 import { HelpModal } from '../HelpModal';
+import { isFarmingQuestion } from '@/utils/farmingDetection';
+import { FrontendVoiceService } from '@/services/frontendVoiceService';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -46,6 +48,8 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showVoiceTest, setShowVoiceTest] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [isPlayingFarmingTTS, setIsPlayingFarmingTTS] = useState(false);
+  const [farmingTTSAudio, setFarmingTTSAudio] = useState<HTMLAudioElement | null>(null);
 
   // 데스크탑 감지 및 리다이렉트
   useEffect(() => {
@@ -100,6 +104,66 @@ const MainPage: React.FC<MainPageProps> = (props) => {
       document.body.style.height = '';
     };
   }, []);
+
+  // 농사 관련 질문 TTS 함수
+  const handleFarmingTTS = async (text: string) => {
+    if (!text || !isFarmingQuestion(text)) {
+      return;
+    }
+
+    try {
+      setIsPlayingFarmingTTS(true);
+      
+      // 기존 오디오가 재생 중이면 정지
+      if (farmingTTSAudio) {
+        farmingTTSAudio.pause();
+        farmingTTSAudio.currentTime = 0;
+      }
+
+      const response = await FrontendVoiceService.textToSpeech(text, {
+        language: 'ko',
+        voice: 'default',
+        speed: 1.0,
+        pitch: 1.0,
+        volume: 0.9
+      });
+
+      if (response.success && response.audio_data) {
+        // base64 오디오 데이터를 URL로 변환
+        const audioBlob = new Blob([
+          Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))
+        ], { type: 'audio/wav' });
+        
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        
+        audio.onplay = () => setIsPlayingFarmingTTS(true);
+        audio.onended = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        
+        setFarmingTTSAudio(audio);
+        await audio.play();
+      }
+    } catch (error) {
+      console.error('농사 관련 TTS 오류:', error);
+      setIsPlayingFarmingTTS(false);
+    }
+  };
+
+  // 농사 관련 질문 TTS 정지
+  const stopFarmingTTS = () => {
+    if (farmingTTSAudio) {
+      farmingTTSAudio.pause();
+      farmingTTSAudio.currentTime = 0;
+      setIsPlayingFarmingTTS(false);
+    }
+  };
 
   // 문제 생성 요청인지 확인하는 함수
   const isProblemGenerationRequest = (message: string): boolean => {
@@ -505,7 +569,21 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                        <div className="flex items-start justify-between">
+                          <div className="text-sm whitespace-pre-wrap flex-1">{message.content}</div>
+                          {/* 농사 관련 질문인 경우 TTS 버튼 표시 */}
+                          {message.role === 'assistant' && isFarmingQuestion(message.content) && (
+                            <button
+                              onClick={() => handleFarmingTTS(message.content)}
+                              className="ml-2 p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                              title="음성으로 듣기"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
