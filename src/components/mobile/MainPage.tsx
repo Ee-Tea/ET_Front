@@ -638,7 +638,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                       }
                     }
                   }}
-                  placeholder="질문을 입력해 주세요."
+                  placeholder={question ? "" : "질문을 입력해 주세요."}
                   className="flex-1 bg-transparent border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm"
                 />
                 
