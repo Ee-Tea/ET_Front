@@ -32,11 +32,11 @@ export class FrontendVoiceService {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
 
-      // 타임아웃 설정 (10초)
+      // 타임아웃 설정 (15초로 증가)
       const timeoutId = setTimeout(() => {
         recognition.stop();
         reject(new Error('음성 인식 시간이 초과되었습니다. 다시 시도해주세요.'));
-      }, 10000);
+      }, 15000);
 
       // Web Speech API 설정 최적화
       recognition.continuous = false;
@@ -194,10 +194,20 @@ export class FrontendVoiceService {
               this.speechToTextWebSpeech(language, retryCount + 1)
                 .then(resolve)
                 .catch(reject);
-            }, 1000 * (retryCount + 1)); // 재시도 간격
+            }, 1500 * (retryCount + 1)); // 재시도 간격 증가
             return;
           }
-          reject(new Error('음성이 감지되지 않았습니다. 마이크에 더 가까이서 말씀해주세요.'));
+          
+          // 더 친화적인 에러 메시지
+          const friendlyMessages = [
+            '음성이 감지되지 않았습니다. 조용한 환경에서 다시 시도해주세요.',
+            '마이크에 더 가까이서 말씀해주세요.',
+            '명확하고 천천히 말씀해주세요.',
+            '마이크가 정상적으로 작동하는지 확인해주세요.'
+          ];
+          
+          const message = friendlyMessages[retryCount] || friendlyMessages[0];
+          reject(new Error(message));
         }
       };
 

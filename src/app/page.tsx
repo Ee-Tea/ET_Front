@@ -10,8 +10,15 @@ import { VoicePanel } from '@/components/VoicePanel';
 import { LoginModal } from '@/components/LoginModal';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import { useAuth } from '@/contexts/AuthContext';
-import { isFarmingRelated } from '@/utils/farmingDetection';
+import { isFarmingRelated, isFarmingQuestion } from '@/utils/farmingDetection';
 import { extractAuthCodeFromUrl, extractErrorFromUrl } from '@/utils/googleAuth';
+import { FrontendVoiceService } from '@/services/frontendVoiceService';
+
+// 모바일 감지 함수
+const isMobile = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
 
 // 메인 페이지 컴포넌트
 export default function Home() {
@@ -20,6 +27,29 @@ export default function Home() {
   const [testSessions, setTestSessions] = useState<any[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  
+  // 모바일 감지 및 리다이렉트
+  useEffect(() => {
+    const checkDevice = () => {
+      const mobile = isMobile();
+      setIsMobileDevice(mobile);
+      
+      if (mobile) {
+        // 모바일인 경우 모바일 페이지로 리다이렉트
+        window.location.href = '/mobile';
+      }
+    };
+    
+    checkDevice();
+    
+    // 윈도우 리사이즈 이벤트 리스너 추가
+    window.addEventListener('resize', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+    };
+  }, []);
   
   // 문제 관련 상태
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
@@ -52,6 +82,8 @@ export default function Home() {
   // 음성 관련 상태
   const [showVoicePanel, setShowVoicePanel] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [isPlayingFarmingTTS, setIsPlayingFarmingTTS] = useState(false);
+  const [farmingTTSAudio, setFarmingTTSAudio] = useState<HTMLAudioElement | null>(null);
   
   // 사이드바 토글 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -87,10 +119,10 @@ export default function Home() {
         const response = await fetch('/backend/health');
         setIsBackendConnected(response.ok);
       } catch (error) {
+        console.error('Backend connection check failed:', error);
         setIsBackendConnected(false);
       }
     };
-
 
     checkBackendConnection();
 
@@ -235,6 +267,26 @@ export default function Home() {
     return hasJpkiKeyword && hasGenerationRequest;
   };
 
+  // 보기 형식 정규화 함수
+  const normalizeOptions = (options: string[]): string[] => {
+    return options.map((option, index) => {
+      // 이미 "숫자. " 형식인 경우 그대로 반환
+      if (option.match(/^\d+\.\s/)) {
+        return option;
+      }
+      // "숫자)" 형식인 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\)\s/)) {
+        return option.replace(/^(\d+)\)\s/, '$1. ');
+      }
+      // 숫자로 시작하는 경우 "숫자. " 형식으로 변환
+      if (option.match(/^\d+\s/)) {
+        return option.replace(/^(\d+)\s/, '$1. ');
+      }
+      // 그 외의 경우 인덱스 기반으로 "숫자. " 형식으로 변환
+      return `${index + 1}. ${option}`;
+    });
+  };
+
   // 문제 파싱 함수
   const parseQuestions = (text: string) => {
     const questions: any[] = [];
@@ -255,7 +307,7 @@ export default function Home() {
             
             for (let i = 1; i < lines.length; i++) {
               const line = lines[i].trim();
-              if (line.match(/^\d+\./)) {
+              if (line.match(/^\d+[\.\)]\s/) || line.match(/^\d+\s/)) {
                 options.push(line);
               } else if (line.includes('정답:') || line.includes('답:')) {
                 correctAnswer = line.replace(/.*(정답|답):\s*/, '');
@@ -265,10 +317,13 @@ export default function Home() {
             }
             
             if (questionText && options.length > 0) {
+              // 보기 형식 정규화
+              const normalizedOptions = normalizeOptions(options);
+              
               questions.push({
                 id: questionId,
                 question: questionText,
-                options: options,
+                options: normalizedOptions,
                 correctAnswer: correctAnswer,
                 explanation: explanation,
                 subject: '정보처리기사',
@@ -429,6 +484,66 @@ export default function Home() {
     setIsProblemRequest(false);
   };
 
+  // 농사 관련 질문 TTS 함수
+  const handleFarmingTTS = async (text: string) => {
+    if (!text || !isFarmingQuestion(text)) {
+      return;
+    }
+
+    try {
+      setIsPlayingFarmingTTS(true);
+      
+      // 기존 오디오가 재생 중이면 정지
+      if (farmingTTSAudio) {
+        farmingTTSAudio.pause();
+        farmingTTSAudio.currentTime = 0;
+      }
+
+      const response = await FrontendVoiceService.textToSpeech(text, {
+        language: 'ko',
+        voice: 'default',
+        speed: 1.0,
+        pitch: 1.0,
+        volume: 0.9
+      });
+
+      if (response.success && response.audio_data) {
+        // base64 오디오 데이터를 URL로 변환
+        const audioBlob = new Blob([
+          Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))
+        ], { type: 'audio/wav' });
+        
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        
+        audio.onplay = () => setIsPlayingFarmingTTS(true);
+        audio.onended = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        audio.onerror = () => {
+          setIsPlayingFarmingTTS(false);
+          URL.revokeObjectURL(url);
+        };
+        
+        setFarmingTTSAudio(audio);
+        await audio.play();
+      }
+    } catch (error) {
+      console.error('농사 관련 TTS 오류:', error);
+      setIsPlayingFarmingTTS(false);
+    }
+  };
+
+  // 농사 관련 질문 TTS 정지
+  const stopFarmingTTS = () => {
+    if (farmingTTSAudio) {
+      farmingTTSAudio.pause();
+      farmingTTSAudio.currentTime = 0;
+      setIsPlayingFarmingTTS(false);
+    }
+  };
+
   // PDF 컨테이너 열기
   const handleOpenPdfContainer = () => {
     setShowPdfContainer(true);
@@ -546,9 +661,9 @@ export default function Home() {
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
-          <div className="w-full max-w-lg min-w-80 h-3/5 min-h-[450px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
+          <div className="w-full max-w-lg min-w-80 h-1/2 min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
             {/* 헤더 */}
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center pt-16 pb-2">
               <img 
                 src="/FT-logo.png" 
                 alt="FT Assistant" 
@@ -560,7 +675,7 @@ export default function Home() {
             {/* 메인 컨텐츠 */}
             <div className="flex-1 flex flex-col items-center justify-center px-2">
               {/* 환영 메시지 */}
-              <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-12 text-center">
                 안녕하세요!
               </h1>
               
@@ -722,7 +837,7 @@ export default function Home() {
               onOpenSettings={() => {}}
               onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
               onVoiceTranscript={handleVoiceTranscript}
-              onFarmingTTS={playFarmingTTS}
+              onFarmingTTS={handleFarmingTTS}
               isBackendConnected={isBackendConnected}
               isSidebarOpen={isSidebarOpen}
               onLayoutExpansion={handleLayoutExpansion}

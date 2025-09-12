@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import VoiceInputButton from './VoiceInputButton';
 import { SettingsPanel } from './SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { isFarmingQuestion } from '@/utils/farmingDetection';
 
   // 정처기 관련 문제 생성 요청 감지 함수
 const isProblemGenerationRequest = (message: string) => {
@@ -213,11 +214,6 @@ export default function ChatContainer({
       };
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 농사 관련 질문인지 확인하고 TTS 재생
-      if (data.response) {
-        onFarmingTTS(data.response);
-      }
-
       // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
       const isProblemRequest = isProblemGenerationRequest(message);
       if (isProblemRequest && data.response && !message.includes('채점') && (
@@ -311,6 +307,17 @@ export default function ChatContainer({
           
           <div className="flex items-center space-x-2">
             
+            {/* 모바일 페이지 버튼 */}
+            <button
+              onClick={() => window.location.href = '/mobile'}
+              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              title="모바일 페이지"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </button>
+            
             {/* 설정 버튼 */}
             <div className="relative" ref={settingsRef}>
               <button
@@ -376,7 +383,21 @@ export default function ChatContainer({
                   ? "bg-blue-500 text-white" 
                   : "bg-gray-100 text-gray-800"
               }`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <div className="flex items-start justify-between">
+                  <p className="text-sm whitespace-pre-wrap flex-1">{msg.content}</p>
+                  {/* 농사 관련 질문인 경우 TTS 버튼 표시 */}
+                  {msg.role === "assistant" && isFarmingQuestion(msg.content) && (
+                    <button
+                      onClick={() => onFarmingTTS(msg.content)}
+                      className="ml-2 p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                      title="음성으로 듣기"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
