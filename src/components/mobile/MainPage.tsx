@@ -479,7 +479,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
         </div>
 
         {/* 메인 콘텐츠 영역 - 위로 겹치는 부분 */}
-        <div className="relative -mt-2 bg-white rounded-t-3xl shadow-lg flex flex-col h-[calc(100vh-4rem)]">
+        <div className="relative -mt-2 bg-white rounded-t-3xl shadow-lg flex flex-col h-[calc(100vh-3.5rem)]">
           {/* 탭 네비게이션 */}
           {messages.length > 0 && (
             <div className="px-4 py-2 border-b border-gray-200">
@@ -545,12 +545,24 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                       예시 질문:
                     </div>
                     <div className="space-y-3 text-center">
-                      <div className="text-sm text-gray-600">
+                      <button
+                        onClick={(e) => {
+                          setQuestion("오이에는 어떤 병해충이 있어?");
+                          handleSubmit(e);
+                        }}
+                        className="block w-full text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                      >
                         <span className="font-bold">농사:</span> "오이에는 어떤 병해충이 있어?"
-                      </div>
-                      <div className="text-sm text-gray-600">
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          setQuestion("소프트웨어 설계 3문제 만들어줘");
+                          handleSubmit(e);
+                        }}
+                        className="block w-full text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                      >
                         <span className="font-bold">정보처리기사:</span> "소프트웨어 설계 3문제 만들어줘"
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
