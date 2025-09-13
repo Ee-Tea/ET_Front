@@ -9,8 +9,7 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
-  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
+  // 동일 오리진 경로 사용: Next.js rewrites가 /auth/*를 Auth API로 전달
 
   if (!isOpen) return null;
 
@@ -20,18 +19,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     try {
       if (provider === 'Google') {
-        // 상태 쿠키가 Set-Cookie(Lax)로 확실히 저장되도록, 8124로 직접 네비게이션
-        window.location.href = `${AUTH_ORIGIN}/auth/google`;
+        window.location.href = `/auth/google`;
         return;
       }
 
       if (provider === 'Naver') {
-        window.location.href = `${AUTH_ORIGIN}/auth/naver`;
+        window.location.href = `/auth/naver`;
         return;
       }
 
       if (provider === 'Kakao') {
-        window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
+        window.location.href = `/auth/kakao`;
         return;
       }
 
