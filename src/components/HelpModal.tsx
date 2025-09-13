@@ -58,8 +58,32 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">💡 사용 예시</h3>
             <div className="bg-gray-100 p-4 rounded-lg">
               <div className="space-y-2 text-sm">
-                <div><strong>농업:</strong> "오이에 어떤 병해충이 있어?"</div>
-                <div><strong>정처기:</strong> "소프트웨어 설계 3문제 만들어줘"</div>
+                <button
+                  onClick={() => {
+                    // 전역 이벤트로 메시지 전송
+                    const event = new CustomEvent('exampleQuestionClick', {
+                      detail: { question: "오이에 어떤 병해충이 있어?" }
+                    });
+                    window.dispatchEvent(event);
+                    onClose();
+                  }}
+                  className="block w-full text-left hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                >
+                  <strong>농업:</strong> "오이에 어떤 병해충이 있어?"
+                </button>
+                <button
+                  onClick={() => {
+                    // 전역 이벤트로 메시지 전송
+                    const event = new CustomEvent('exampleQuestionClick', {
+                      detail: { question: "소프트웨어 설계 3문제 만들어줘" }
+                    });
+                    window.dispatchEvent(event);
+                    onClose();
+                  }}
+                  className="block w-full text-left hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                >
+                  <strong>정처기:</strong> "소프트웨어 설계 3문제 만들어줘"
+                </button>
               </div>
             </div>
           </div>

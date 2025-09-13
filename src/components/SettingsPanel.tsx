@@ -54,28 +54,13 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
       const microphoneNode = audioCtx.createMediaStreamSource(stream);
       
       analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
       microphoneNode.connect(analyserNode);
       
       setAudioContext(audioCtx);
       setAnalyser(analyserNode);
       setMicrophone(microphoneNode);
       setIsListening(true);
-
-      // 음성 레벨 업데이트
-      const updateVoiceLevel = () => {
-        if (analyserNode && isListening) {
-          const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
-          analyserNode.getByteFrequencyData(dataArray);
-          
-          // 평균 레벨 계산
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setVoiceLevel(average);
-          
-          requestAnimationFrame(updateVoiceLevel);
-        }
-      };
-      
-      updateVoiceLevel();
     } catch (error) {
       console.error('음성 레벨 모니터링을 시작할 수 없습니다:', error);
       setVoiceTestResult('마이크 접근 권한이 필요합니다.');
@@ -104,6 +89,36 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
     }
   }, [showVoiceTest]);
 
+  // 음성 레벨 업데이트 루프
+  useEffect(() => {
+    let animationId: number;
+    
+    const updateVoiceLevel = () => {
+      if (analyser && isListening) {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+        
+        // 평균 레벨 계산 (감도 조정)
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        const normalizedLevel = Math.min(average * 1.2, 100); // 감도 낮춤
+        
+        setVoiceLevel(normalizedLevel);
+        
+        animationId = requestAnimationFrame(updateVoiceLevel);
+      }
+    };
+    
+    if (isListening && analyser) {
+      updateVoiceLevel();
+    }
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [isListening, analyser]);
+
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
@@ -117,10 +132,8 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
       setIsTestingVoice(true);
       setVoiceTestResult('');
       
-      // 음성 레벨 모니터링이 실행 중이 아니면 시작
-      if (!isListening) {
-        await startVoiceLevelMonitoring();
-      }
+      // 음성 레벨 모니터링 시작
+      await startVoiceLevelMonitoring();
       
       const response = await FrontendVoiceService.speechToTextWebSpeech('ko-KR');
       
@@ -316,23 +329,20 @@ export function SettingsPanel({ onClose, isBackendConnected, isOpen }: SettingsP
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-gray-700">음성 레벨</label>
-              <button
-                onClick={isListening ? stopVoiceLevelMonitoring : startVoiceLevelMonitoring}
-                className={`px-3 py-1 text-xs rounded-md ${
-                  isListening 
-                    ? 'bg-red-500 text-white hover:bg-red-600' 
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
-              >
-                {isListening ? '음성 레벨 중지' : '음성 레벨 시작'}
-              </button>
+              <span className={`text-xs px-2 py-1 rounded-md ${
+                isListening 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-gray-100 text-gray-500'
+              }`}>
+                {isListening ? '모니터링 중' : '대기 중'}
+              </span>
             </div>
             
             {/* 음성 레벨 바 */}
             <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
               <div 
                 className="bg-green-500 h-2 rounded-full transition-all duration-100"
-                style={{ width: `${Math.min(voiceLevel * 2, 100)}%` }}
+                style={{ width: `${Math.min(voiceLevel * 1.2, 100)}%` }}
               ></div>
             </div>
             

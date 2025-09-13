@@ -661,9 +661,9 @@ export default function Home() {
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
-          <div className="w-full max-w-lg min-w-80 h-1/2 min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
+          <div className="w-full max-w-lg min-w-80 h-[65vh] min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
             {/* 헤더 */}
-            <div className="flex items-center justify-center pt-16 pb-2">
+            <div className="flex items-center justify-center pt-12 pb-2">
               <img 
                 src="/FT-logo.png" 
                 alt="FT Assistant" 
@@ -675,7 +675,7 @@ export default function Home() {
             {/* 메인 컨텐츠 */}
             <div className="flex-1 flex flex-col items-center justify-center px-2">
               {/* 환영 메시지 */}
-              <h1 className="text-2xl font-bold text-gray-900 mb-12 text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center mt-4">
                 안녕하세요!
               </h1>
               
