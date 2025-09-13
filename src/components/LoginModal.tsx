@@ -10,12 +10,15 @@ interface LoginModalProps {
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   // 동일 오리진 경로 사용: Next.js rewrites가 /auth/*를 Auth API로 전달
+  const [loadingProvider, setLoadingProvider] = useState<'Google' | 'Naver' | 'Kakao' | null>(null);
+  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
+  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
   if (!isOpen) return null;
 
   const handleSocialLogin = async (provider: 'Google' | 'Naver' | 'Kakao') => {
-    if (isLoading) return;
-    setIsLoading(true);
+    if (loadingProvider) return;
+    setLoadingProvider(provider);
 
     try {
       if (provider === 'Google') {
@@ -35,7 +38,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     } catch (e) {
       console.error('소셜 로그인 시작 실패:', e);
-      setIsLoading(false);
+      setLoadingProvider(null);
     }
   };
 
@@ -64,10 +67,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           {/* Google Login */}
           <button
             onClick={() => handleSocialLogin('Google')}
-            disabled={isLoading}
+            disabled={loadingProvider !== null}
             className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? (
+            {loadingProvider === 'Google' ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700" />
             ) : (
               <svg className="w-6 h-6" viewBox="0 0 24 24">
@@ -78,30 +81,44 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </svg>
             )}
             <span className="text-lg font-medium">
-              {isLoading ? '로그인 중...' : 'Google Login'}
+              {loadingProvider === 'Google' ? '로그인 중...' : 'Google Login'}
             </span>
           </button>
 
           {/* Naver Login */}
           <button
             onClick={() => handleSocialLogin('Naver')}
-            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-lg"
+            disabled={loadingProvider !== null}
+            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z"/>
-            </svg>
-            <span className="text-lg font-medium">Naver Login</span>
+            {loadingProvider === 'Naver' ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+            ) : (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z"/>
+              </svg>
+            )}
+            <span className="text-lg font-medium">
+              {loadingProvider === 'Naver' ? '로그인 중...' : 'Naver Login'}
+            </span>
           </button>
 
           {/* Kakao Login */}
           <button
             onClick={() => handleSocialLogin('Kakao')}
-            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-yellow-400 text-gray-800 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg"
+            disabled={loadingProvider !== null}
+            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-yellow-400 text-gray-800 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L8.5 21.5c-1.5.5-3.5-1-3-2.5l.5-2.5c-2.5-1.5-4.5-4-4.5-6.5C1.5 6.664 6.201 3 12 3Z"/>
-            </svg>
-            <span className="text-lg font-medium">Kakao Login</span>
+            {loadingProvider === 'Kakao' ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-800" />
+            ) : (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L8.5 21.5c-1.5.5-3.5-1-3-2.5l.5-2.5c-2.5-1.5-4.5-4-4.5-6.5C1.5 6.664 6.201 3 12 3Z"/>
+              </svg>
+            )}
+            <span className="text-lg font-medium">
+              {loadingProvider === 'Kakao' ? '로그인 중...' : 'Kakao Login'}
+            </span>
           </button>
         </div>
 

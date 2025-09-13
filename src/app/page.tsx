@@ -673,7 +673,7 @@ export default function Home() {
                   type="text"
                   value={miniMessage}
                   onChange={(e) => setMiniMessage(e.target.value)}
-                  placeholder="질문을 입력해주세요."
+                  placeholder={miniMessage ? "" : "질문을 입력해주세요."}
                   className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {

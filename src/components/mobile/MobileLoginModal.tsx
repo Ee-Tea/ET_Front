@@ -8,41 +8,36 @@ interface MobileLoginModalProps {
 }
 
 export function MobileLoginModal({ isOpen, onClose }: MobileLoginModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<'Google' | 'Naver' | 'Kakao' | null>(null);
+  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
+  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
 
   if (!isOpen) return null;
 
-  const handleGoogleLogin = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
+  const handleSocialLogin = async (provider: 'Google' | 'Naver' | 'Kakao') => {
+    if (loadingProvider) return;
+    setLoadingProvider(provider);
 
     try {
-      // 모바일에서는 백엔드 연결 없이 직접 Google OAuth URL 생성
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      if (!clientId) {
-        throw new Error('Google Client ID가 설정되지 않았습니다.');
+      if (provider === 'Google') {
+        // 상태 쿠키가 Set-Cookie(Lax)로 확실히 저장되도록, 8124로 직접 네비게이션
+        window.location.href = `${AUTH_ORIGIN}/auth/google`;
+        return;
       }
 
-      const redirectUri = `${window.location.origin}/mobile/callback`;
-      const scope = 'openid email profile';
-      
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: scope,
-        access_type: 'offline',
-        prompt: 'consent'
-      });
+      if (provider === 'Naver') {
+        window.location.href = `${AUTH_ORIGIN}/auth/naver`;
+        return;
+      }
 
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-      
-      // 구글 OAuth로 이동
-      window.location.href = authUrl;
-      return;
+      if (provider === 'Kakao') {
+        window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
+        return;
+      }
+
     } catch (e) {
-      console.error('Google 로그인 시작 실패:', e);
-      setIsLoading(false);
+      console.error('소셜 로그인 시작 실패:', e);
+      setLoadingProvider(null);
     }
   };
 
@@ -69,11 +64,11 @@ export function MobileLoginModal({ isOpen, onClose }: MobileLoginModalProps) {
         <div className="px-6 py-8 space-y-4">
           {/* Google Login */}
           <button
-            onClick={handleGoogleLogin}
-            disabled={isLoading}
+            onClick={() => handleSocialLogin('Google')}
+            disabled={loadingProvider !== null}
             className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mobile-button"
           >
-            {isLoading ? (
+            {loadingProvider === 'Google' ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700" />
             ) : (
               <svg className="w-6 h-6" viewBox="0 0 24 24">
@@ -84,30 +79,44 @@ export function MobileLoginModal({ isOpen, onClose }: MobileLoginModalProps) {
               </svg>
             )}
             <span className="text-lg font-medium">
-              {isLoading ? '로그인 중...' : 'Google로 로그인'}
+              {loadingProvider === 'Google' ? '로그인 중...' : 'Google로 로그인'}
             </span>
           </button>
 
           {/* Naver Login */}
           <button
-            onClick={() => alert('네이버 로그인은 준비 중입니다.')}
-            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-lg mobile-button"
+            onClick={() => handleSocialLogin('Naver')}
+            disabled={loadingProvider !== null}
+            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-lg mobile-button disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z"/>
-            </svg>
-            <span className="text-lg font-medium">네이버로 로그인</span>
+            {loadingProvider === 'Naver' ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+            ) : (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z"/>
+              </svg>
+            )}
+            <span className="text-lg font-medium">
+              {loadingProvider === 'Naver' ? '로그인 중...' : '네이버로 로그인'}
+            </span>
           </button>
 
           {/* Kakao Login */}
           <button
-            onClick={() => alert('카카오 로그인은 준비 중입니다.')}
-            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-yellow-400 text-gray-800 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg mobile-button"
+            onClick={() => handleSocialLogin('Kakao')}
+            disabled={loadingProvider !== null}
+            className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-yellow-400 text-gray-800 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg mobile-button disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L8.5 21.5c-1.5.5-3.5-1-3-2.5l.5-2.5c-2.5-1.5-4.5-4-4.5-6.5C1.5 6.664 6.201 3 12 3Z"/>
-            </svg>
-            <span className="text-lg font-medium">카카오로 로그인</span>
+            {loadingProvider === 'Kakao' ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-800" />
+            ) : (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L8.5 21.5c-1.5.5-3.5-1-3-2.5l.5-2.5c-2.5-1.5-4.5-4-4.5-6.5C1.5 6.664 6.201 3 12 3Z"/>
+              </svg>
+            )}
+            <span className="text-lg font-medium">
+              {loadingProvider === 'Kakao' ? '로그인 중...' : '카카오로 로그인'}
+            </span>
           </button>
         </div>
 
