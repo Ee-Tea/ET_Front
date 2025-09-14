@@ -53,7 +53,7 @@ export function ChatInterface({
 
     try {
       // 백엔드로 메시지 전송
-      const response = await fetch('/backend/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -26,7 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={"antialiased"} suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link 
+          href="https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css" 
+          rel="stylesheet" 
+        />
+      </head>
+      <body className={"antialiased font-suit"} suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>
