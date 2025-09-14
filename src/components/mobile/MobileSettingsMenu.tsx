@@ -9,6 +9,7 @@ interface MobileSettingsMenuProps {
   onVoiceTest?: () => void;
   onGetHelp?: () => void;
   onLogin?: () => void;
+  onVoiceMode?: () => void;
   user?: any;
   autoTTSEnabled?: boolean;
   onToggleAutoTTS?: () => void;
@@ -20,6 +21,7 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
   onVoiceTest,
   onGetHelp,
   onLogin,
+  onVoiceMode,
   user,
   autoTTSEnabled = true,
   onToggleAutoTTS
@@ -56,6 +58,27 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
 
         {/* 메뉴 아이템들 */}
         <div className="px-6 py-4 space-y-4">
+
+          {/* 음성 모드 */}
+          <button
+            onClick={() => {
+              if (onVoiceMode) onVoiceMode();
+              onClose();
+            }}
+            className="w-full flex items-center justify-between py-3 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              </div>
+              <span className="text-gray-800 font-medium">음성 모드</span>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
 
           {/* 음성 테스트 */}
           <button

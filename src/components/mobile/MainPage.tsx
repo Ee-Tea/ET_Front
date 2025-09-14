@@ -6,6 +6,7 @@ import MobileSettingsMenu from './MobileSettingsMenu';
 import { MobileLoginModal } from './MobileLoginModal';
 import { MobileVoiceInput } from './MobileVoiceInput';
 import { MobileVoiceTest } from './MobileVoiceTest';
+import { MobileVoiceMode } from './MobileVoiceMode';
 import { HelpModal } from '../HelpModal';
 import ResultPopup from './ResultPopup';
 import { isFarmingQuestion } from '@/utils/farmingDetection';
@@ -51,6 +52,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showVoiceTest, setShowVoiceTest] = useState(false);
+  const [showVoiceMode, setShowVoiceMode] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isPlayingFarmingTTS, setIsPlayingFarmingTTS] = useState(false);
   const [farmingTTSAudio, setFarmingTTSAudio] = useState<HTMLAudioElement | null>(null);
@@ -501,6 +503,10 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     setShowVoiceTest(true);
   };
 
+  const handleVoiceMode = () => {
+    setShowVoiceMode(true);
+  };
+
   const handleGetHelp = () => {
     setShowHelpModal(true);
   };
@@ -913,6 +919,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
           onVoiceTest={handleVoiceTest}
+          onVoiceMode={handleVoiceMode}
           onGetHelp={handleGetHelp}
           onLogin={handleLogin}
           user={user}
@@ -930,6 +937,12 @@ const MainPage: React.FC<MainPageProps> = (props) => {
         <MobileVoiceTest
           isOpen={showVoiceTest}
           onClose={() => setShowVoiceTest(false)}
+        />
+
+        {/* 음성 모드 모달 */}
+        <MobileVoiceMode
+          isOpen={showVoiceMode}
+          onClose={() => setShowVoiceMode(false)}
         />
 
         {/* 도움말 모달 */}
