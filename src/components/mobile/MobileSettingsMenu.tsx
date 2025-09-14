@@ -10,6 +10,8 @@ interface MobileSettingsMenuProps {
   onGetHelp?: () => void;
   onLogin?: () => void;
   user?: any;
+  autoTTSEnabled?: boolean;
+  onToggleAutoTTS?: () => void;
 }
 
 const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
@@ -18,12 +20,14 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
   onVoiceTest,
   onGetHelp,
   onLogin,
-  user
+  user,
+  autoTTSEnabled = true,
+  onToggleAutoTTS
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+    <div className="fixed inset-0 backdrop-blur-md bg-white/20 z-50 flex items-end">
       <div className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-hidden">
         {/* 메뉴 헤더 */}
         <div className="px-6 py-4 border-b border-gray-200">
@@ -91,6 +95,30 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
               <span className="text-gray-800 font-medium">도움 받기</span>
             </div>
           </button>
+
+          {/* 자동 음성 읽기 설정 */}
+          <div className="w-full flex items-center justify-between py-3 hover:bg-gray-50 rounded-lg transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              </div>
+              <span className="text-gray-800 font-medium">농업 질문 자동 읽기</span>
+            </div>
+            <button
+              onClick={onToggleAutoTTS}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                autoTTSEnabled ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  autoTTSEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* 로그인/로그아웃 버튼 */}
