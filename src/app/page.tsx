@@ -791,7 +791,7 @@ export default function Home() {
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
-          <div className="w-full max-w-lg min-w-80 h-[65vh] min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
+          <div className="w-full max-w-md min-w-72 h-[65vh] min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
             {/* 헤더 */}
             <div className="flex items-center justify-center pt-12 pb-2">
               <img 
@@ -898,7 +898,7 @@ export default function Home() {
           </div>
         ) : (
           /* 확장된 레이아웃 - 전체 화면 */
-          <div className="h-full flex gap-4 transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95" suppressHydrationWarning>
+          <div className="h-full flex gap-4 max-w-7xl mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95" suppressHydrationWarning>
           
           {/* 채팅 히스토리 - 문제 생성 요청일 때는 더 좁게, 아니면 기본 크기 */}
           {isSidebarOpen && (
@@ -961,8 +961,9 @@ export default function Home() {
             </div>
           )}
 
-          {/* 오른쪽 채팅 컨테이너 */}
-          <div className="flex-1 h-full" suppressHydrationWarning>
+          {/* 가운데 채팅 컨테이너 */}
+          <div className="flex-1 flex justify-center h-full" suppressHydrationWarning>
+            <div className="w-full max-w-3xl h-full">
             <ChatContainer
               onProblemDetected={fetchRecentQuestions}
               onOpenSettings={() => {}}
@@ -981,6 +982,7 @@ export default function Home() {
               createNewSession={createNewSession}
               clearCurrentSession={clearCurrentSession}
             />
+            </div>
           </div>
         </div>
       )}
