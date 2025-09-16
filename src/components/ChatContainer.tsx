@@ -61,6 +61,7 @@ interface ChatContainerProps {
   createNewSession?: () => Promise<string | null> | void;
   clearCurrentSession?: () => Promise<void> | void;
   onSessionBound?: (sessionId: string) => void;
+  onChatIdBound?: (chatId: string) => void;
 }
 
 export default function ChatContainer({
@@ -82,6 +83,7 @@ export default function ChatContainer({
   createNewSession,
   clearCurrentSession
   , onSessionBound
+  , onChatIdBound
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -106,6 +108,18 @@ export default function ChatContainer({
   const [messages, setMessages] = useState<Array<{role: string, content: string}>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
+  const debugIds = (phase: string, extra?: Record<string, any>) => {
+    try {
+      // eslint-disable-next-line no-console
+      console.log(`[chat:ids] ${phase}`, {
+        uid: user?.id || '(guest)',
+        cid: currentChatId || '',
+        sid_ref: sessionIdRef.current || '',
+        sid_prop: currentSessionId || '',
+        ...extra,
+      });
+    } catch {}
+  };
 
   // ID helpers
   const getGuestId = () => {
@@ -128,11 +142,27 @@ export default function ChatContainer({
     return { uid, cid };
   };
 
+  const resolveChatIdFromSession = async (sid: string, uid: string) => {
+    try {
+      const resp = await fetch(`/backend/recent-questions?session_id=${encodeURIComponent(sid)}`, {
+        method: 'GET',
+        headers: { 'x-user-id': uid },
+      });
+      if (!resp.ok) return '';
+      const data = await resp.json();
+      const sessionStr = data?.session || '';
+      const parts = typeof sessionStr === 'string' ? sessionStr.split(':') : [];
+      const chatId = parts.length >= 2 ? parts[1] : '';
+      return chatId || '';
+    } catch { return ''; }
+  };
+
   // 외부로부터 전달된 currentSessionId가 바뀌면 ref도 동기화(사용자 명시 전환용)
   useEffect(() => {
     // 외부 상태가 전달된 최초 시점에만 ref 채움(전송 도중 덮어쓰기 방지)
     if (currentSessionId && !sessionIdRef.current) {
       sessionIdRef.current = currentSessionId;
+      debugIds('bind-from-props', { bind: currentSessionId });
     }
   }, [currentSessionId]);
 
@@ -144,6 +174,7 @@ export default function ChatContainer({
       if (sid) {
         sessionIdRef.current = sid;
         if (onSessionBound) onSessionBound(sid);
+        debugIds('ensureSession:new', { sid });
         return sid;
       }
     }
@@ -253,9 +284,11 @@ export default function ChatContainer({
     try {
       const reqId = Math.random().toString(36).slice(2, 10);
       const t0 = performance.now();
-      console.debug(`[req:${reqId}] POST /api/proxy/chat start`);
+      // eslint-disable-next-line no-console
+      console.log(`[req:${reqId}] POST /api/proxy/chat start`);
       const { uid, cid } = resolveIds();
       const sid = await ensureSession(uid);
+      debugIds('sendMessage:before-fetch', { reqId, uid, cid, sid });
       const response = await fetch("/api/proxy/chat", {
         method: "POST",
         headers: {
@@ -283,7 +316,16 @@ export default function ChatContainer({
         sessionIdRef.current = resSessionId;
         if (onSessionBound) onSessionBound(resSessionId);
       }
-      console.debug(`[req:${reqId}] POST /api/proxy/chat done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
+      if ((!currentChatId || String(currentChatId).length === 0) && resSessionId && onChatIdBound) {
+        const mappedCid = await resolveChatIdFromSession(resSessionId, uid);
+        if (mappedCid) {
+          onChatIdBound(String(mappedCid));
+          debugIds('mapped-chat-id', { mappedCid });
+        }
+      }
+      debugIds('sendMessage:after-fetch', { reqId, res_sid_header: response.headers.get('x-session-id') || '', res_sid_body: data?.session_id || '' });
+      // eslint-disable-next-line no-console
+      console.log(`[req:${reqId}] POST /api/proxy/chat done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
       const assistantMessage = {
         role: "assistant",
         content: data.response || "응답을 생성할 수 없습니다."

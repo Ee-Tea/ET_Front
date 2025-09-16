@@ -1022,6 +1022,11 @@ export default function Home() {
                   setCurrentSessionId(sid);
                 }
               }}
+              onChatIdBound={(cid) => {
+                if (!currentChatId) {
+                  setCurrentChatId(String(cid));
+                }
+              }}
             />
           </div>
         </div>
