@@ -24,6 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const authOrigin = (process.env.NEXT_PUBLIC_AUTH_ORIGIN as string) ||
+    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8124` : '');
 
   useEffect(() => {
     try {
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`/auth/me`, {
+      const res = await fetch(`${authOrigin}/auth/me`, {
         credentials: 'include',
         headers: {
           'Cache-Control': 'no-cache',
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const res = await fetch(`/auth/logout`, {
+      const res = await fetch(`${authOrigin}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
