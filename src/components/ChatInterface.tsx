@@ -53,7 +53,7 @@ export function ChatInterface({
 
     try {
       // 백엔드로 메시지 전송
-      const response = await fetch('/backend/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ export function ChatInterface({
             onKeyPress={handleKeyPress}
             placeholder={inputValue ? "" : "메시지를 입력하세요..."}
             className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isLoading}
+            disabled={false}
           />
           <button
             onClick={handleSendMessage}

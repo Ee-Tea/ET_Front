@@ -161,9 +161,20 @@ export default function ChatContainer({
       }
     };
 
+    const handleExampleQuestion = (event: CustomEvent) => {
+      if (event.detail && event.detail.question && !isLoading && isBackendConnected) {
+        setMessage(event.detail.question);
+        setTimeout(() => {
+          sendMessage();
+        }, 50);
+      }
+    };
+
     window.addEventListener('autoSendMessage', handleAutoSend as EventListener);
+    window.addEventListener('exampleQuestionClick', handleExampleQuestion as EventListener);
     return () => {
       window.removeEventListener('autoSendMessage', handleAutoSend as EventListener);
+      window.removeEventListener('exampleQuestionClick', handleExampleQuestion as EventListener);
     };
   }, [isLoading, isBackendConnected]);
 
@@ -431,7 +442,7 @@ export default function ChatContainer({
             onKeyPress={handleKeyPress}
             placeholder={message ? "" : "질문을 입력해주세요."}
             className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
-            disabled={isLoading || !isBackendConnected}
+            disabled={!isBackendConnected}
           />
           
           {/* 오른쪽 아이콘들 */}
@@ -439,7 +450,7 @@ export default function ChatContainer({
             {/* 음성 버튼 */}
             <VoiceInputButton
               onTranscript={handleVoiceTranscript}
-              disabled={isLoading || !isBackendConnected}
+              disabled={!isBackendConnected}
             />
             
             {/* 전송 버튼 */}

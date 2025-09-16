@@ -105,6 +105,9 @@ export default function Home() {
   // 백엔드 연결 상태
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   
+  // 세션 관련 상태
+  const [currentMessages, setCurrentMessages] = useState<any[]>([]);
+  
   // 로그인 상태 확인 (선택사항으로 변경)
   useEffect(() => {
     if (isLoggedIn) {
@@ -132,6 +135,133 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 세션 목록 불러오기
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const response = await fetch(`/api/chat/sessions?user_id=${user?.id || 'anonymous'}`);
+        if (response.ok) {
+          const sessions = await response.json();
+          setTestSessions(sessions);
+        }
+      } catch (error) {
+        console.error('세션 목록 불러오기 실패:', error);
+      }
+    };
+
+    if (isLoggedIn) {
+      fetchSessions();
+    }
+  }, [isLoggedIn, user?.id]);
+
+  // 새 세션 생성
+  const createNewSession = async () => {
+    try {
+      const response = await fetch('/api/chat/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: '새 채팅',
+          user_id: user?.id || 'anonymous'
+        }),
+      });
+
+      if (response.ok) {
+        const newSession = await response.json();
+        setTestSessions(prev => [newSession, ...prev]);
+        setCurrentSessionId(newSession.id);
+        setCurrentMessages([]);
+        setMessage('');
+        setMiniMessage('');
+        return newSession.id;
+      }
+    } catch (error) {
+      console.error('새 세션 생성 실패:', error);
+    }
+    return null;
+  };
+
+  // 세션별 메시지 불러오기
+  const loadSessionMessages = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
+      if (response.ok) {
+        const messages = await response.json();
+        setCurrentMessages(messages);
+      }
+    } catch (error) {
+      console.error('메시지 불러오기 실패:', error);
+    }
+  };
+
+  // 세션 전환
+  const handleSessionChange = async (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    await loadSessionMessages(sessionId);
+  };
+
+  // 메시지 저장
+  const saveMessage = async (message: any) => {
+    if (!currentSessionId) return;
+
+    try {
+      await fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+    } catch (error) {
+      console.error('메시지 저장 실패:', error);
+    }
+  };
+
+  // 세션 삭제
+  const deleteSession = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions?session_id=${sessionId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // 세션 목록에서 제거
+        setTestSessions(prev => prev.filter(session => session.id !== sessionId));
+        
+        // 현재 세션이 삭제된 세션이면 새 세션 생성
+        if (currentSessionId === sessionId) {
+          setCurrentSessionId(null);
+          setCurrentMessages([]);
+          setMessage('');
+          setMiniMessage('');
+        }
+      }
+    } catch (error) {
+      console.error('세션 삭제 실패:', error);
+    }
+  };
+
+  // 메시지 삭제 (현재 세션의 모든 메시지)
+  const clearCurrentSession = async () => {
+    if (!currentSessionId) return;
+
+    try {
+      const response = await fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setCurrentMessages([]);
+        setMessage('');
+        setMiniMessage('');
+      }
+    } catch (error) {
+      console.error('메시지 삭제 실패:', error);
+    }
+  };
 
   // PDF 관련 함수들
   const checkPdfGenerationStatus = async () => {
@@ -400,7 +530,7 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
-      const response = await fetch("/backend/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -661,9 +791,9 @@ export default function Home() {
          suppressHydrationWarning>
         {!isLayoutExpanded ? (
           /* 초기 압축된 레이아웃 - 중앙 집중형 */
-          <div className="w-full max-w-lg min-w-80 h-1/2 min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
+          <div className="w-full max-w-lg min-w-80 h-[65vh] min-h-[400px] bg-gray-50 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto transition-all duration-700 ease-in-out transform scale-100 animate-in fade-in-0 zoom-in-95">
             {/* 헤더 */}
-            <div className="flex items-center justify-center pt-16 pb-2">
+            <div className="flex items-center justify-center pt-12 pb-2">
               <img 
                 src="/FT-logo.png" 
                 alt="FT Assistant" 
@@ -675,7 +805,7 @@ export default function Home() {
             {/* 메인 컨텐츠 */}
             <div className="flex-1 flex flex-col items-center justify-center px-2">
               {/* 환영 메시지 */}
-              <h1 className="text-2xl font-bold text-gray-900 mb-12 text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center mt-4">
                 안녕하세요!
               </h1>
               
@@ -777,9 +907,10 @@ export default function Home() {
                 testSessions={testSessions}
                 setTestSessions={setTestSessions}
                 currentSessionId={currentSessionId}
-                setCurrentSessionId={setCurrentSessionId}
-                onNewChat={() => window.location.reload()}
+                setCurrentSessionId={handleSessionChange}
+                onNewChat={createNewSession}
                 isBackendConnected={isBackendConnected}
+                onDeleteSession={deleteSession}
               />
             </div>
           )}
@@ -843,6 +974,12 @@ export default function Home() {
               onLayoutExpansion={handleLayoutExpansion}
               message={message}
               setMessage={setMessage}
+              currentSessionId={currentSessionId}
+              currentMessages={currentMessages}
+              setCurrentMessages={setCurrentMessages}
+              saveMessage={saveMessage}
+              createNewSession={createNewSession}
+              clearCurrentSession={clearCurrentSession}
             />
           </div>
         </div>

@@ -6,7 +6,9 @@ import MobileSettingsMenu from './MobileSettingsMenu';
 import { MobileLoginModal } from './MobileLoginModal';
 import { MobileVoiceInput } from './MobileVoiceInput';
 import { MobileVoiceTest } from './MobileVoiceTest';
+import { MobileVoiceMode } from './MobileVoiceMode';
 import { HelpModal } from '../HelpModal';
+import ResultPopup from './ResultPopup';
 import { isFarmingQuestion } from '@/utils/farmingDetection';
 import { FrontendVoiceService } from '@/services/frontendVoiceService';
 
@@ -23,6 +25,10 @@ interface Problem {
   userAnswer?: string;
   correctAnswer?: string;
   explanation?: string;
+  selectedAnswer?: number; // 선택된 답안 인덱스
+  isSubmitted?: boolean; // 제출 여부
+  isCorrect?: boolean; // 정답 여부
+
 }
 
 interface MainPageProps {
@@ -47,9 +53,13 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showVoiceTest, setShowVoiceTest] = useState(false);
+  const [showVoiceMode, setShowVoiceMode] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isPlayingFarmingTTS, setIsPlayingFarmingTTS] = useState(false);
   const [farmingTTSAudio, setFarmingTTSAudio] = useState<HTMLAudioElement | null>(null);
+  const [submittedAnswers, setSubmittedAnswers] = useState<{[problemId: number]: number}>({});
+  const [problemResults, setProblemResults] = useState<{[problemId: number]: {isCorrect: boolean, explanation?: string}}>({});
+  const [autoTTSEnabled, setAutoTTSEnabled] = useState(true); // 농업 관련 질문 자동 TTS
 
   // 데스크탑 감지 및 리다이렉트
   useEffect(() => {
@@ -329,6 +339,14 @@ const MainPage: React.FC<MainPageProps> = (props) => {
       };
       setMessages(prev => [...prev, assistantMessage]);
 
+      // 농업 관련 질문이고 자동 TTS가 활성화된 경우 TTS 재생
+      const isFarming = isFarmingQuestion(question.trim());
+      if (isFarming && autoTTSEnabled) {
+        setTimeout(() => {
+          handleFarmingTTS(responseText);
+        }, 1000); // 1초 후 TTS 재생
+      }
+
       // 문제 생성 요청인 경우 웹페이지와 동일한 방식으로 처리
       if (isProblemRequest) {
         // 웹페이지와 동일하게 100ms 후 문제 데이터 요청
@@ -374,6 +392,64 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     }
   };
 
+  // 문제 답안 선택 핸들러
+  const handleAnswerSelect = (problemId: number, answerIndex: number) => {
+    setSubmittedAnswers(prev => ({
+      ...prev,
+      [problemId]: answerIndex
+    }));
+  };
+
+  // 전체 답안 제출 핸들러
+  const handleSubmitAllAnswers = async () => {
+    if (Object.keys(submittedAnswers).length === 0) {
+      alert('답안을 선택해주세요.');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // 모든 문제에 대해 정답 체크
+      const newResults: {[problemId: number]: {isCorrect: boolean, explanation?: string}} = {};
+      
+      problems.forEach(problem => {
+        const selectedAnswer = submittedAnswers[problem.id];
+        if (selectedAnswer !== undefined) {
+          // correctAnswer가 인덱스 번호(1, 2, 3, 4)로 오므로 0-based 인덱스로 변환
+          const correctAnswerIndex = parseInt(problem.correctAnswer || '0') - 1;
+          const isCorrect = selectedAnswer === correctAnswerIndex;
+          
+          console.log(`문제 ${problem.id} 정답 체크:`, {
+            selectedAnswer,
+            correctAnswer: problem.correctAnswer,
+            correctAnswerIndex,
+            isCorrect
+          });
+          
+          newResults[problem.id] = {
+            isCorrect: isCorrect,
+            explanation: problem.explanation
+          };
+        }
+      });
+
+      setProblemResults(newResults);
+      
+      // 전체 결과 요약
+      const correctCount = Object.values(newResults).filter(result => result.isCorrect).length;
+      const totalCount = Object.keys(newResults).length;
+      
+      console.log(`전체 답안 제출 완료: ${correctCount}/${totalCount} 정답`);
+      
+    } catch (error) {
+      console.error('답안 제출 오류:', error);
+      alert('답안 제출에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 웹페이지와 동일한 최근 질문 가져오기 함수
   const fetchRecentQuestions = async (userMessage?: string) => {
     try {
@@ -388,14 +464,19 @@ const MainPage: React.FC<MainPageProps> = (props) => {
         
         // 새로운 문제가 있을 때만 상태 업데이트하고 바로 표시
         if (newQuestions.length > 0) {
-          const parsedProblems: Problem[] = newQuestions.map((q: any, index: number) => ({
-            id: index + 1,
-            question: q.question,
-            type: 'multiple' as const,
-            options: q.options,
-            correctAnswer: q.answer,
-            explanation: q.explanation
-          }));
+          console.log('백엔드 데이터 확인:', newQuestions);
+          
+          const parsedProblems: Problem[] = newQuestions.map((q: any, index: number) => {
+            console.log(`문제 ${index + 1} 데이터:`, q);
+            return {
+              id: index + 1,
+              question: q.question,
+              type: 'multiple' as const,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              explanation: q.explanation
+            };
+          });
           
           setProblems(parsedProblems);
           setCurrentView('problems');
@@ -423,12 +504,20 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     setShowVoiceTest(true);
   };
 
+  const handleVoiceMode = () => {
+    setShowVoiceMode(true);
+  };
+
   const handleGetHelp = () => {
     setShowHelpModal(true);
   };
 
   const handleLogin = () => {
     setShowLoginModal(true);
+  };
+
+  const handleToggleAutoTTS = () => {
+    setAutoTTSEnabled(prev => !prev);
   };
 
   return (
@@ -479,7 +568,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
         </div>
 
         {/* 메인 콘텐츠 영역 - 위로 겹치는 부분 */}
-        <div className="relative -mt-2 bg-white rounded-t-3xl shadow-lg flex flex-col h-[calc(100vh-4rem)]">
+        <div className="relative -mt-2 bg-white rounded-t-3xl shadow-lg flex flex-col h-[calc(100vh-3.5rem)]">
           {/* 탭 네비게이션 */}
           {messages.length > 0 && (
             <div className="px-4 py-2 border-b border-gray-200">
@@ -545,12 +634,24 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                       예시 질문:
                     </div>
                     <div className="space-y-3 text-center">
-                      <div className="text-sm text-gray-600">
+                      <button
+                        onClick={(e) => {
+                          setQuestion("오이에는 어떤 병해충이 있어?");
+                          handleSubmit(e);
+                        }}
+                        className="block w-full text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                      >
                         <span className="font-bold">농사:</span> "오이에는 어떤 병해충이 있어?"
-                      </div>
-                      <div className="text-sm text-gray-600">
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          setQuestion("소프트웨어 설계 3문제 만들어줘");
+                          handleSubmit(e);
+                        }}
+                        className="block w-full text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                      >
                         <span className="font-bold">정보처리기사:</span> "소프트웨어 설계 3문제 만들어줘"
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -620,16 +721,81 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                     
                     {problem.type === 'multiple' && problem.options ? (
                       <div className="space-y-3">
-                        {problem.options.map((option, index) => (
-                          <div key={index} className="flex items-start">
-                            <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
-                              <span className="text-xs font-medium text-gray-600">{index + 1}</span>
-                            </div>
-                            <div className="text-sm text-gray-700 leading-relaxed flex-1">
-                              {option}
+                        {problem.options.map((option, index) => {
+                          const isSelected = submittedAnswers[problem.id] === index;
+                          // correctAnswer가 인덱스 번호(1, 2, 3, 4)로 오므로 0-based 인덱스로 변환
+                          const correctAnswerIndex = parseInt(problem.correctAnswer || '0') - 1;
+                          const isCorrectAnswer = index === correctAnswerIndex;
+                          const hasResults = Object.keys(problemResults).length > 0;
+                          const problemResult = problemResults[problem.id];
+                          
+                          return (
+                            <label key={index} className={`flex items-start cursor-pointer p-3 rounded-lg ${hasResults ? 'cursor-default' : ''} ${hasResults && problemResult ? (
+                              isSelected ? (
+                                problemResult.isCorrect ? 'bg-green-100 border-2 border-green-300' : 'bg-red-100 border-2 border-red-300'
+                              ) : isCorrectAnswer ? 'bg-green-100 border-2 border-green-300' : 'bg-gray-50'
+                            ) : 'bg-gray-50'}`}>
+                              <input
+                                type="radio"
+                                name={`problem-${problem.id}`}
+                                value={index}
+                                checked={isSelected}
+                                onChange={() => handleAnswerSelect(problem.id, index)}
+                                disabled={hasResults}
+                                className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 mr-3 mt-0.5 flex-shrink-0 disabled:opacity-50"
+                              />
+                              <div className="text-sm leading-relaxed flex-1 flex items-center justify-between">
+                                <span className={`${hasResults && problemResult ? (
+                                  isSelected ? (
+                                    problemResult.isCorrect ? 'text-green-800 font-medium' : 'text-red-800 font-medium'
+                                  ) : isCorrectAnswer ? 'text-green-800 font-medium' : 'text-gray-700'
+                                ) : 'text-gray-700'}`}>
+                                  {option}
+                                </span>
+                                {hasResults && problemResult && (
+                                  <div className="ml-2 flex items-center gap-1">
+                                    {isSelected && (
+                                      <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                        problemResult.isCorrect 
+                                          ? 'bg-green-200 text-green-800' 
+                                          : 'bg-red-200 text-red-800'
+                                      }`}>
+                                        {problemResult.isCorrect ? '정답' : '오답'}
+                                      </span>
+                                    )}
+                                    {!isSelected && isCorrectAnswer && (
+                                      <span className="text-xs font-medium px-2 py-1 rounded bg-green-200 text-green-800">
+                                        정답
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                        
+                        
+                        {/* 해설 표시 */}
+                        {problemResults[problem.id] && problemResults[problem.id].explanation && (
+                          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="text-sm text-gray-700">
+                              <div className="font-medium text-gray-800 mb-2">
+                                정답: {(() => {
+                                  if (!problem.correctAnswer) return '?';
+                                  // correctAnswer가 숫자 문자열인 경우 (1, 2, 3, 4)
+                                  const correctNumber = parseInt(problem.correctAnswer);
+                                  if (!isNaN(correctNumber) && correctNumber >= 1 && correctNumber <= 4) {
+                                    return correctNumber + '번';
+                                  }
+                                  return '?';
+                                })()}
+                              </div>
+                              <div className="font-medium text-gray-800 mb-1">해설:</div>
+                              <div>{problemResults[problem.id].explanation}</div>
                             </div>
                           </div>
-                        ))}
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -638,22 +804,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                             <span className="text-sm text-gray-500">답안을 입력하세요...</span>
                           </div>
                         ))}
-                      </div>
-                    )}
-                    
-                    {/* 정답과 해설 (개발용 - 실제로는 숨김) */}
-                    {process.env.NODE_ENV === 'development' && (problem.correctAnswer || problem.explanation) && (
-                      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        {problem.correctAnswer && (
-                          <div className="text-sm text-blue-800 mb-2">
-                            <span className="font-medium">정답:</span> {problem.correctAnswer}
-                          </div>
-                        )}
-                        {problem.explanation && (
-                          <div className="text-sm text-blue-700">
-                            <span className="font-medium">해설:</span> {problem.explanation}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -757,9 +907,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
           onVoiceTest={handleVoiceTest}
-          onGetHelp={handleGetHelp}
-          onLogin={handleLogin}
-          user={user}
         />
 
         {/* 로그인 모달 */}
@@ -773,7 +920,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           isOpen={showVoiceTest}
           onClose={() => setShowVoiceTest(false)}
         />
-
         {/* 도움말 모달 */}
         <HelpModal
           isOpen={showHelpModal}

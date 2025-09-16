@@ -21,28 +21,13 @@ export default function PdfContainer({
   // PDF 카테고리별로 분류 (백엔드에서 생성된 PDF만)
   const categorizedPdfs = {
     problemSolving: availablePdfs.filter(pdf => 
-      pdf.filename?.includes('문제풀이') || 
-      pdf.filename?.includes('problem_solving') ||
-      pdf.filename?.includes('문제_풀이') ||
-      pdf.filename?.includes('문제') ||
-      pdf.filename?.includes('정처기') ||
-      pdf.filename?.includes('소프트웨어') ||
-      pdf.filename?.includes('데이터베이스') ||
-      pdf.filename?.includes('네트워크') ||
-      pdf.filename?.includes('정보보안')
+      pdf.filename?.includes('답안집')
     ),
     wrongAnswerAnalysis: availablePdfs.filter(pdf => 
-      pdf.filename?.includes('오답분석') || 
-      pdf.filename?.includes('wrong_answer') ||
-      pdf.filename?.includes('오답_분석') ||
-      pdf.filename?.includes('오답') ||
-      pdf.filename?.includes('분석')
+      pdf.filename?.includes('분석리포트')
     ),
     problemGeneration: availablePdfs.filter(pdf => 
-      pdf.filename?.includes('문제생성') || 
-      pdf.filename?.includes('problem_generation') ||
-      pdf.filename?.includes('문제_생성') ||
-      pdf.filename?.includes('생성')
+      pdf.filename?.includes('문제집')
     )
   };
 
@@ -179,19 +164,19 @@ export default function PdfContainer({
         ) : (
           <div>
             {renderPdfSection(
-              "문제 풀이", 
+              "답안집", 
               categorizedPdfs.problemSolving, 
               "📝", 
               "bg-blue-500"
             )}
             {renderPdfSection(
-              "오답 분석", 
+              "분석리포트", 
               categorizedPdfs.wrongAnswerAnalysis, 
               "📊", 
               "bg-red-500"
             )}
             {renderPdfSection(
-              "문제 생성", 
+              "문제집", 
               categorizedPdfs.problemGeneration, 
               "📚", 
               "bg-green-500"

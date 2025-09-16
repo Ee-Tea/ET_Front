@@ -100,7 +100,7 @@ export default function ChatArea({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/backend/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -309,16 +309,28 @@ export default function ChatArea({
               </p>
               <div className="text-center space-y-2 text-sm text-gray-600">
                 <p className="font-medium">예시 질문:</p>
-                <ul className="space-y-1">
-                  <li className="flex items-center justify-center">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setMessage("오이에는 어떤 병해충이 있어?");
+                      sendMessage();
+                    }}
+                    className="block w-full text-left hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                  >
                     <span className="text-blue-500 mr-2">•</span>
                     <span><strong>농사:</strong> "오이에는 어떤 병해충이 있어?"</span>
-                  </li>
-                  <li className="flex items-center justify-center">
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMessage("소프트웨어 설계 3문제 만들어줘");
+                      sendMessage();
+                    }}
+                    className="block w-full text-left hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                  >
                     <span className="text-blue-500 mr-2">•</span>
                     <span><strong>정처기:</strong> "소프트웨어 설계 3문제 만들어줘"</span>
-                  </li>
-                </ul>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -358,13 +370,13 @@ export default function ChatArea({
             onKeyPress={handleKeyPress}
             placeholder={message ? "" : "질문을 입력하세요..."}
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            disabled={isLoading || !isBackendConnected}
+            disabled={!isBackendConnected}
           />
           
           {/* 음성 입력 버튼 */}
           <VoiceInputButton
             onTranscript={handleVoiceTranscript}
-            disabled={isLoading || !isBackendConnected}
+            disabled={!isBackendConnected}
           />
           
           <button
