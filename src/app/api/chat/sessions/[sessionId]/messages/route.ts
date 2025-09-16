@@ -6,10 +6,10 @@ let sessionMessages: {[sessionId: string]: any[]} = {};
 // 세션의 메시지 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const messages = sessionMessages[sessionId] || [];
     
     return NextResponse.json(messages);
@@ -25,10 +25,10 @@ export async function GET(
 // 세션에 메시지 저장
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const message = await request.json();
 
     if (!sessionMessages[sessionId]) {
