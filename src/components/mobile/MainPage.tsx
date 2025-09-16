@@ -231,11 +231,14 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     }
 
     try {
+      // Health gate
+      const h = await fetch('/backend/health', { cache: 'no-store' });
+      if (!h.ok) throw new Error('Backend not ready');
       const response = await fetch("/backend/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: question.trim(),
+          message: question.trim() || '안녕하세요',
           user_id: "mobile_user",
           chat_id: "mobile_chat",
         }),
@@ -315,7 +318,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     try {
       const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {

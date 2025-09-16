@@ -116,14 +116,18 @@ export default function ChatContainer({
               }
               
               try {
+                // Health gate
+                const h = await fetch('/backend/health', { cache: 'no-store' });
+                if (!h.ok) throw new Error('Backend not ready');
                 const response = await fetch('/backend/chat', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    message: autoMessage,
-                    session_id: null
+                    message: autoMessage || '안녕하세요',
+                    user_id: 'frontend_user',
+                    chat_id: 'frontend_chat'
                   }),
                 });
 
@@ -192,11 +196,14 @@ export default function ChatContainer({
     }
 
     try {
+      // Health gate
+      const h = await fetch('/backend/health', { cache: 'no-store' });
+      if (!h.ok) throw new Error('Backend not ready');
       const response = await fetch("/backend/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: message,
+          message: message || '안녕하세요',
           user_id: "frontend_user",
           chat_id: "frontend_chat",
         }),

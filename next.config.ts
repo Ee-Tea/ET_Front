@@ -26,9 +26,7 @@ const nextConfig: NextConfig = {
       // Auth/BFF -> 8124
       { source: '/auth/:path*', destination: 'http://localhost:8124/auth/:path*' },
       // Backend core -> 8100 (PDF/채팅 등)
-      { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
-      // 기존 /api -> 8124 유지 (필요 시)
-      { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
+      { source: '/backend/:path*', destination: 'http://localhost:8100/:path*' },
        
     ];
   },

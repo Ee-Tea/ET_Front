@@ -13,8 +13,8 @@ export const GOOGLE_AUTH_CONFIG: GoogleAuthConfig = {
   scope: 'openid email profile'
 };
 
-// 테스트된 리디렉션 URI (메인 페이지)
-export const WORKING_REDIRECT_URI = 'http://localhost:8124/auth/google/callback';
+// 테스트된 리디렉션 URI (메인 페이지) - 로컬 절대 주소 의존 제거
+export const WORKING_REDIRECT_URI = '/auth/google/callback';
 
 // 구글 로그인 URL 생성
 export const generateGoogleAuthUrl = (): string => {
@@ -116,11 +116,12 @@ export const exchangeCodeForToken = async (code: string): Promise<any> => {
   try {
     console.log('백엔드로 인증 코드 전송:', code);
     
-    const response = await fetch('/api/auth/google/callback', {
+    const response = await fetch('/auth/google/callback', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ code }),
     });
 
@@ -136,10 +137,9 @@ export const exchangeCodeForToken = async (code: string): Promise<any> => {
     throw error;
   }
 };
-export const AUTH_API = process.env.NEXT_PUBLIC_AUTH_API ?? '';
-
+// 리라이트 기반 상대 경로 사용
 export async function startGoogleLogin() {
-  const res = await fetch(`${AUTH_API}/api/auth/google`, { credentials: 'include' });
+  const res = await fetch(`/auth/google`, { credentials: 'include' });
   const { auth_url } = await res.json();
   window.location.href = auth_url; // 구글로 이동 → 백엔드 콜백으로 복귀
 }

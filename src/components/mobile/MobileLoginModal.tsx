@@ -9,8 +9,7 @@ interface MobileLoginModalProps {
 
 export function MobileLoginModal({ isOpen, onClose }: MobileLoginModalProps) {
   const [loadingProvider, setLoadingProvider] = useState<'Google' | 'Naver' | 'Kakao' | null>(null);
-  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
-  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
+  // 프론트 리라이트 사용: 상대경로로 /auth/* 호출
 
   if (!isOpen) return null;
 
@@ -19,21 +18,9 @@ export function MobileLoginModal({ isOpen, onClose }: MobileLoginModalProps) {
     setLoadingProvider(provider);
 
     try {
-      if (provider === 'Google') {
-        // 상태 쿠키가 Set-Cookie(Lax)로 확실히 저장되도록, 8124로 직접 네비게이션
-        window.location.href = `${AUTH_ORIGIN}/auth/google`;
-        return;
-      }
-
-      if (provider === 'Naver') {
-        window.location.href = `${AUTH_ORIGIN}/auth/naver`;
-        return;
-      }
-
-      if (provider === 'Kakao') {
-        window.location.href = `${AUTH_ORIGIN}/auth/kakao`;
-        return;
-      }
+      if (provider === 'Google') { window.location.href = `/auth/google`; return; }
+      if (provider === 'Naver') { window.location.href = `/auth/naver`; return; }
+      if (provider === 'Kakao') { window.location.href = `/auth/kakao`; return; }
 
     } catch (e) {
       console.error('소셜 로그인 시작 실패:', e);

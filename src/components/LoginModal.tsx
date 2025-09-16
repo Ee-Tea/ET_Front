@@ -11,8 +11,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   // 동일 오리진 경로 사용: Next.js rewrites가 /auth/*를 Auth API로 전달
   const [loadingProvider, setLoadingProvider] = useState<'Google' | 'Naver' | 'Kakao' | null>(null);
-  // 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
-  const AUTH_ORIGIN = 'http://172.29.208.1:8124';
+  // 프론트 리라이트 사용: 상대경로로 /auth/* 호출
 
   if (!isOpen) return null;
 

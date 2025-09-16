@@ -135,7 +135,6 @@ export default function Home() {
     try {
       const response = await fetch("/backend/pdf-status", {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {
@@ -165,7 +164,6 @@ export default function Home() {
       console.log('PDF 목록 가져오기 시도: /backend/pdfs');
       const response = await fetch("/backend/pdfs", {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       console.log('PDF 목록 응답:', response.status, response.statusText);
@@ -357,7 +355,6 @@ export default function Home() {
     try {
       const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {
@@ -397,6 +394,9 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
+      // Health gate
+      const h = await fetch('/backend/health', { cache: 'no-store' });
+      if (!h.ok) throw new Error('Backend not ready');
       const response = await fetch("/backend/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

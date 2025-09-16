@@ -41,11 +41,12 @@ export default function GoogleCallbackPage() {
       
       try {
         // 백엔드로 인증 코드 전송하여 사용자 정보 받기
-        const response = await fetch('/api/auth/google/callback', {
-          method: 'GET',
+        const response = await fetch('/auth/google/callback', {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: JSON.stringify({ code }),
         });
 
