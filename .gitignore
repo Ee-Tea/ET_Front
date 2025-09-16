@@ -51,7 +51,6 @@ bun.lockb
 .langgraph_api
 
 # Node / pnpm leftovers (backend only)
-pnpm-lock.yaml
 pnpm-workspace.yaml
 pnpm-debug.log
 node_modules/
