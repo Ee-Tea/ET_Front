@@ -28,6 +28,7 @@ interface Problem {
   selectedAnswer?: number; // 선택된 답안 인덱스
   isSubmitted?: boolean; // 제출 여부
   isCorrect?: boolean; // 정답 여부
+
 }
 
 interface MainPageProps {
@@ -833,19 +834,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
                 )}
                 </div>
               </div>
-              
-              {/* 전체 답안 제출 버튼 */}
-              {problems.length > 0 && (
-                <div className="px-4 py-3 border-t border-gray-100">
-                  <button
-                    onClick={handleSubmitAllAnswers}
-                    disabled={isLoading || Object.keys(submittedAnswers).length === 0 || Object.keys(problemResults).length > 0}
-                    className="w-full bg-blue-500 text-white py-3 rounded-xl font-medium disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
-                  >
-                    {isLoading ? '채점 중...' : Object.keys(problemResults).length > 0 ? '제출 완료' : '답안 제출'}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -919,12 +907,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           isOpen={showSettingsMenu}
           onClose={() => setShowSettingsMenu(false)}
           onVoiceTest={handleVoiceTest}
-          onVoiceMode={handleVoiceMode}
-          onGetHelp={handleGetHelp}
-          onLogin={handleLogin}
-          user={user}
-          autoTTSEnabled={autoTTSEnabled}
-          onToggleAutoTTS={handleToggleAutoTTS}
         />
 
         {/* 로그인 모달 */}
@@ -938,13 +920,6 @@ const MainPage: React.FC<MainPageProps> = (props) => {
           isOpen={showVoiceTest}
           onClose={() => setShowVoiceTest(false)}
         />
-
-        {/* 음성 모드 모달 */}
-        <MobileVoiceMode
-          isOpen={showVoiceMode}
-          onClose={() => setShowVoiceMode(false)}
-        />
-
         {/* 도움말 모달 */}
         <HelpModal
           isOpen={showHelpModal}

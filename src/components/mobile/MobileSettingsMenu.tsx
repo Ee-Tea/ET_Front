@@ -79,7 +79,6 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-
           {/* 음성 테스트 */}
           <button
             onClick={() => {
@@ -181,3 +180,4 @@ const MobileSettingsMenu: React.FC<MobileSettingsMenuProps> = ({
 };
 
 export default MobileSettingsMenu;
+
