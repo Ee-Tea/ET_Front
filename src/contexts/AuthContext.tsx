@@ -19,14 +19,13 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-// 8124에 쿠키 저장을 원하므로 고정 ORIGIN 사용
-const AUTH_ORIGIN = 'http://172.29.208.1:8124';
-// 동일 오리진 프록시 사용: /api 로 호출
-const AUTH_API = ''; // Next.js 프록시를 통해 /api 경로 사용
+// 동일 오리진 프록시 사용: Next.js rewrites로 /auth/*를 백엔드로 전달
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const authOrigin = (process.env.NEXT_PUBLIC_AUTH_ORIGIN as string) ||
+    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8124` : '');
 
   useEffect(() => {
     try {
@@ -43,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[AUTH] /auth/me 요청 (${label})`);
     try {
-      const res = await fetch(`${AUTH_ORIGIN}/auth/me`, {
+      const res = await fetch(`${authOrigin}/auth/me`, {
         credentials: 'include',
         headers: {
           'Cache-Control': 'no-cache',
@@ -101,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const res = await fetch(`${AUTH_ORIGIN}/auth/logout`, {
+      const res = await fetch(`${authOrigin}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {

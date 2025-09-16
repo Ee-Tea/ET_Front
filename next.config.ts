@@ -28,14 +28,13 @@ const nextConfig: NextConfig = {
 
   // ✅ 프록시: 프론트(3000) -> 백엔드(8124, 8100)
   async rewrites() {
+    const AUTH_ORIGIN = process.env.NEXT_PUBLIC_AUTH_ORIGIN || 'http://localhost:8124';
+    const BFF_ORIGIN = process.env.NEXT_PUBLIC_BFF_ORIGIN || 'http://localhost:8100';
     return [
-      // Auth/BFF -> 8124
-      { source: '/auth/:path*', destination: 'http://localhost:8124/auth/:path*' },
-      // Backend core -> 8100 (PDF/채팅 등)
-      { source: '/backend/:path*', destination: 'http://localhost:8000/:path*' },
-      // 기존 /api -> 8124 유지 (필요 시)
-      { source: '/api/:path*', destination: 'http://localhost:8124/:path*' },
-       
+      // Auth → AUTH_ORIGIN
+      { source: '/auth/:path*', destination: `${AUTH_ORIGIN}/auth/:path*` },
+      // Backend core → BFF_ORIGIN (PDF/채팅 등)
+      { source: '/backend/:path*', destination: `${BFF_ORIGIN}/:path*` },
     ];
   },
 };
