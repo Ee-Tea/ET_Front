@@ -53,6 +53,12 @@ interface ChatContainerProps {
   onLayoutExpansion?: () => void;
   message?: string;
   setMessage?: (message: string) => void;
+  currentSessionId?: string | null;
+  currentMessages?: Array<{ role: string; content: string }>;
+  setCurrentMessages?: (messages: Array<{ role: string; content: string }>) => void;
+  saveMessage?: (message: any) => Promise<void> | void;
+  createNewSession?: () => Promise<string | null> | void;
+  clearCurrentSession?: () => Promise<void> | void;
 }
 
 export default function ChatContainer({
@@ -65,11 +71,19 @@ export default function ChatContainer({
   isSidebarOpen,
   onLayoutExpansion,
   message: externalMessage,
-  setMessage: externalSetMessage
+  setMessage: externalSetMessage,
+  currentSessionId,
+  currentMessages,
+  setCurrentMessages,
+  saveMessage,
+  createNewSession,
+  clearCurrentSession
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const autoSendInFlight = useRef(false);
+  const sendInFlight = useRef(false);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -100,6 +114,8 @@ export default function ChatContainer({
     const handleAutoSend = (event: CustomEvent) => {
       const { message: autoMessage } = event.detail;
       if (autoMessage && autoMessage.trim()) {
+        if (autoSendInFlight.current) return;
+        autoSendInFlight.current = true;
         setMessage(autoMessage);
         // 메시지 설정 후 자동 전송을 위한 플래그 설정
         setTimeout(() => {
@@ -116,14 +132,18 @@ export default function ChatContainer({
                 setTimeout(() => onProblemDetected(autoMessage), 100);
               }
               
+              const reqId = Math.random().toString(36).slice(2, 10);
+              let t0 = 0;
               try {
-                // Health gate
-                const h = await fetch('/backend/health', { cache: 'no-store' });
-                if (!h.ok) throw new Error('Backend not ready');
-                const response = await fetch('/backend/chat', {
+                t0 = performance.now();
+                console.debug(`[req:${reqId}] POST /api/proxy/chat (auto) start`);
+                const response = await fetch('/api/proxy/chat', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
+                    'x-user-id': 'frontend_user',
+                    'x-chat-id': 'frontend_chat',
+                    'x-request-id': reqId,
                   },
                   body: JSON.stringify({
                     message: autoMessage || '안녕하세요',
@@ -133,10 +153,12 @@ export default function ChatContainer({
                 });
 
                 if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
+                  const errText = await response.text().catch(() => '');
+                  throw new Error(`HTTP error! status: ${response.status} body: ${errText}`);
                 }
 
                 const data = await response.json();
+                console.debug(`[req:${reqId}] POST /api/proxy/chat (auto) done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
                 setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
                 setMessage('');
                 
@@ -153,10 +175,11 @@ export default function ChatContainer({
                   setTimeout(() => onProblemDetected(autoMessage), 1000);
                 }
               } catch (error) {
-                console.error('Error:', error);
+                console.error(`[req:${reqId}] /api/proxy/chat (auto) error`, error);
                 setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 오류가 발생했습니다.' }]);
               } finally {
                 setIsLoading(false);
+                autoSendInFlight.current = false;
               }
             };
             sendAutoMessage();
@@ -184,6 +207,8 @@ export default function ChatContainer({
 
   const sendMessage = async () => {
     if (!message.trim()) return;
+    if (sendInFlight.current) return;
+    sendInFlight.current = true;
 
     // 레이아웃 확장 트리거 (첫 메시지 전송 시)
     if (onLayoutExpansion && messages.length === 0) {
@@ -208,12 +233,17 @@ export default function ChatContainer({
     }
 
     try {
-      // Health gate
-      const h = await fetch('/backend/health', { cache: 'no-store' });
-      if (!h.ok) throw new Error('Backend not ready');
-      const response = await fetch("/backend/chat", {
+      const reqId = Math.random().toString(36).slice(2, 10);
+      const t0 = performance.now();
+      console.debug(`[req:${reqId}] POST /api/proxy/chat start`);
+      const response = await fetch("/api/proxy/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": "frontend_user",
+          "x-chat-id": "frontend_chat",
+          "x-request-id": reqId,
+        },
         body: JSON.stringify({
           message: message || '안녕하세요',
           user_id: "frontend_user",
@@ -226,6 +256,7 @@ export default function ChatContainer({
       }
 
       const data = await response.json();
+      console.debug(`[req:${reqId}] POST /api/proxy/chat done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
       const assistantMessage = {
         role: "assistant",
         content: data.response || "응답을 생성할 수 없습니다."
@@ -248,6 +279,7 @@ export default function ChatContainer({
       console.error("백엔드 API 호출 실패:", error);
     } finally {
       setIsLoading(false);
+      sendInFlight.current = false;
     }
   };
 
@@ -260,7 +292,15 @@ export default function ChatContainer({
     try {
       const response = await fetch("/backend/clear", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": "frontend_user",
+          "x-chat-id": "frontend_chat",
+        },
+        body: JSON.stringify({
+          user_id: "frontend_user",
+          chat_id: "frontend_chat",
+        }),
       });
 
       if (!response.ok) {

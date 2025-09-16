@@ -9,6 +9,8 @@ interface ChatHistoryContainerProps {
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   onNewChat: () => void;
   isBackendConnected: boolean;
+  onDeleteSession?: (sessionId: string) => Promise<void> | void;
+  onOpenLogin?: () => void;
 }
 
 export default function ChatHistoryContainer({
@@ -18,6 +20,7 @@ export default function ChatHistoryContainer({
   setCurrentSessionId,
   onNewChat,
   isBackendConnected,
+  onDeleteSession,
   onOpenLogin
 }: ChatHistoryContainerProps) {
   return (
