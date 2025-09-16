@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function MobileCallbackPage() {
+function MobileCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -158,5 +158,30 @@ export default function MobileCallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MobileCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center mobile-container mobile-safe-area">
+        {/* 모바일 프레임 */}
+        <div className="w-full max-w-sm mx-auto bg-black rounded-[2.5rem] p-2 mobile-frame">
+          {/* 노치 영역 */}
+          <div className="h-6 bg-black rounded-t-[2rem] flex items-center justify-center">
+            <div className="w-32 h-1 bg-gray-600 rounded-full"></div>
+          </div>
+          
+          {/* 실제 화면 영역 */}
+          <div className="bg-white rounded-[2rem] h-[calc(100vh-2rem)] flex flex-col items-center justify-center px-6 text-center">
+            <div className="w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-6"></div>
+            <h1 className="text-xl font-bold text-gray-800 mb-4">로딩 중...</h1>
+            <p className="text-gray-600 text-sm">페이지를 불러오는 중입니다.</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <MobileCallbackContent />
+    </Suspense>
   );
 }

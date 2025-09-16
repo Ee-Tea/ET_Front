@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import VoiceInputButton from './VoiceInputButton';
 import { SettingsPanel } from './SettingsPanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { isFarmingQuestion } from '@/utils/farmingDetection';
 
   // 정처기 관련 문제 생성 요청 감지 함수
 const isProblemGenerationRequest = (message: string) => {
@@ -164,9 +165,20 @@ export default function ChatContainer({
       }
     };
 
+    const handleExampleQuestion = (event: CustomEvent) => {
+      if (event.detail && event.detail.question && !isLoading && isBackendConnected) {
+        setMessage(event.detail.question);
+        setTimeout(() => {
+          sendMessage();
+        }, 50);
+      }
+    };
+
     window.addEventListener('autoSendMessage', handleAutoSend as EventListener);
+    window.addEventListener('exampleQuestionClick', handleExampleQuestion as EventListener);
     return () => {
       window.removeEventListener('autoSendMessage', handleAutoSend as EventListener);
+      window.removeEventListener('exampleQuestionClick', handleExampleQuestion as EventListener);
     };
   }, [isLoading, isBackendConnected]);
 
@@ -219,11 +231,6 @@ export default function ChatContainer({
         content: data.response || "응답을 생성할 수 없습니다."
       };
       setMessages(prev => [...prev, assistantMessage]);
-
-      // 농사 관련 질문인지 확인하고 TTS 재생
-      if (data.response) {
-        onFarmingTTS(data.response);
-      }
 
       // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
       const isProblemRequest = isProblemGenerationRequest(message);
@@ -394,7 +401,21 @@ export default function ChatContainer({
                   ? "bg-blue-500 text-white" 
                   : "bg-gray-100 text-gray-800"
               }`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <div className="flex items-start justify-between">
+                  <p className="text-sm whitespace-pre-wrap flex-1">{msg.content}</p>
+                  {/* 농사 관련 질문인 경우 TTS 버튼 표시 */}
+                  {msg.role === "assistant" && isFarmingQuestion(msg.content) && (
+                    <button
+                      onClick={() => onFarmingTTS(msg.content)}
+                      className="ml-2 p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                      title="음성으로 듣기"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -428,7 +449,7 @@ export default function ChatContainer({
             onKeyPress={handleKeyPress}
             placeholder={message ? "" : "질문을 입력해주세요."}
             className="flex-1 text-gray-900 placeholder-gray-400 focus:outline-none text-base"
-            disabled={isLoading || !isBackendConnected}
+            disabled={!isBackendConnected}
           />
           
           {/* 오른쪽 아이콘들 */}
@@ -436,7 +457,7 @@ export default function ChatContainer({
             {/* 음성 버튼 */}
             <VoiceInputButton
               onTranscript={handleVoiceTranscript}
-              disabled={isLoading || !isBackendConnected}
+              disabled={!isBackendConnected}
             />
             
             {/* 전송 버튼 */}

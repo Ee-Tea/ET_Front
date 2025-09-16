@@ -1,0 +1,29 @@
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+    networks:
+      - et-agent-network
+    volumes:
+      - ./certificates:/etc/nginx/certs:ro
+
+  frontend:
+    build: .
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - env.production
+    networks:
+      - et-agent-network
+    restart: unless-stopped
+
+networks:
+  et-agent-network:
+    external: true
