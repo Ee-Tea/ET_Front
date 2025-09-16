@@ -52,22 +52,22 @@ export default function ChatHistoryContainer({
           ) : (
             testSessions.map((session) => (
               <div
-                key={session.id}
+                key={session.session_id}
                 className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  currentSessionId === session.id
+                  currentSessionId === session.session_id
                     ? 'bg-blue-100 text-blue-800 border border-blue-200'
                     : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 }`}
-                onClick={() => setCurrentSessionId(session.id)}
+                onClick={() => setCurrentSessionId(session.session_id)}
               >
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className="text-sm truncate">{session.name || '새 채팅'}</span>
+                  <span className="text-sm truncate">{session.title || '새 채팅'}</span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {new Date(session.createdAt).toLocaleDateString()}
+                  {session.created_at ? new Date(session.created_at).toLocaleString() : ''}
                 </div>
               </div>
             ))

@@ -107,6 +107,22 @@ export default function Home() {
   
   // 세션 관련 상태
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string>('');
+
+  // 게스트 ID 헬퍼
+  const getGuestId = () => {
+    if (typeof window === 'undefined') return 'guest_anon';
+    try {
+      let gid = localStorage.getItem('guest_id');
+      if (!gid) {
+        gid = 'guest_' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('guest_id', gid);
+      }
+      return gid;
+    } catch {
+      return 'guest_anon';
+    }
+  };
   
   // 로그인 상태 확인 (선택사항으로 변경)
   useEffect(() => {
@@ -121,10 +137,17 @@ export default function Home() {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const response = await fetch(`/api/chat/sessions?user_id=${user?.id || 'anonymous'}`);
+        const response = await fetch(`/api/chat/sessions?user_id=${user?.id || getGuestId()}`);
         if (response.ok) {
-          const sessions = await response.json();
+          const data = await response.json();
+          const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+          // 최신이 위로 오도록 정렬
+          sessions.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           setTestSessions(sessions);
+          if (!currentSessionId && sessions.length > 0) {
+            setCurrentSessionId(sessions[0].session_id);
+            setCurrentChatId(String(sessions[0].chat_id || ''));
+          }
         }
       } catch (error) {
         console.error('세션 목록 불러오기 실패:', error);
@@ -145,19 +168,20 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: '새 채팅',
-          user_id: user?.id || 'anonymous'
+          user_id: user?.id || getGuestId(),
+          service_type: 'teacher',
         }),
       });
 
       if (response.ok) {
         const newSession = await response.json();
         setTestSessions(prev => [newSession, ...prev]);
-        setCurrentSessionId(newSession.id);
+        setCurrentSessionId(newSession.session_id);
+        setCurrentChatId(String(newSession.chat_id || ''));
         setCurrentMessages([]);
         setMessage('');
         setMiniMessage('');
-        return newSession.id;
+        return newSession.session_id as string;
       }
     } catch (error) {
       console.error('새 세션 생성 실패:', error);
@@ -180,7 +204,11 @@ export default function Home() {
 
   // 세션 전환
   const handleSessionChange = async (sessionId: string) => {
+    // 응답 처리 중엔 세션 스위칭 금지
+    if (isSubmitting) return;
     setCurrentSessionId(sessionId);
+    const sel = testSessions.find((s: any) => s.session_id === sessionId);
+    setCurrentChatId(String(sel?.chat_id || ''));
     await loadSessionMessages(sessionId);
   };
 
@@ -204,17 +232,18 @@ export default function Home() {
   // 세션 삭제
   const deleteSession = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/chat/sessions?session_id=${sessionId}`, {
+      const response = await fetch(`/api/chat/sessions/${sessionId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         // 세션 목록에서 제거
-        setTestSessions(prev => prev.filter(session => session.id !== sessionId));
+        setTestSessions(prev => prev.filter((session: any) => session.session_id !== sessionId));
         
         // 현재 세션이 삭제된 세션이면 새 세션 생성
         if (currentSessionId === sessionId) {
           setCurrentSessionId(null);
+          setCurrentChatId('');
           setCurrentMessages([]);
           setMessage('');
           setMiniMessage('');
@@ -276,6 +305,7 @@ export default function Home() {
   const fetchPdfs = async () => {
     try {
       console.log('PDF 목록 가져오기 시도: /backend/pdfs');
+      // 세션 전환/메시지 저장 중에는 불필요한 리스트 리프레시를 지양
       const response = await fetch("/backend/pdfs", {
         method: "GET",
       });
@@ -473,8 +503,8 @@ export default function Home() {
       const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
         headers: {
-          "x-user-id": "frontend_user",
-          "x-chat-id": currentSessionId || "frontend_chat",
+          "x-user-id": user?.id || getGuestId(),
+          "x-chat-id": String(currentChatId || ''),
           "x-request-id": reqId,
         },
       });
@@ -525,13 +555,13 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": "frontend_user",
+          "x-user-id": user?.id || getGuestId(),
           "x-chat-id": "frontend_grading",
           "x-request-id": reqId,
         },
         body: JSON.stringify({
           message: query,
-          user_id: "frontend_user",
+          user_id: user?.id || getGuestId(),
           chat_id: "frontend_grading",  // 별도 채팅 ID 사용
           is_grading: true
         }),
@@ -981,11 +1011,17 @@ export default function Home() {
               message={message}
               setMessage={setMessage}
               currentSessionId={currentSessionId}
+              currentChatId={currentChatId}
               currentMessages={currentMessages}
               setCurrentMessages={setCurrentMessages}
               saveMessage={saveMessage}
               createNewSession={createNewSession}
               clearCurrentSession={clearCurrentSession}
+              onSessionBound={(sid) => {
+                if (!currentSessionId) {
+                  setCurrentSessionId(sid);
+                }
+              }}
             />
           </div>
         </div>
