@@ -102,8 +102,8 @@ export default function Home() {
   };
   
   
-  // 백엔드 연결 상태
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
+  // 백엔드 연결 상태 (헬스체크 제거: 기본 true)
+  const [isBackendConnected, setIsBackendConnected] = useState(true);
   
   // 세션 관련 상태
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
@@ -115,26 +115,7 @@ export default function Home() {
     }
   }, [isLoggedIn]);
 
-  // 백엔드 연결 상태 확인
-  useEffect(() => {
-    const checkBackendConnection = async () => {
-      try {
-        const response = await fetch('/backend/health');
-        setIsBackendConnected(response.ok);
-      } catch (error) {
-        console.error('Backend connection check failed:', error);
-        setIsBackendConnected(false);
-      }
-    };
-
-    checkBackendConnection();
-
-    const interval = setInterval(() => {
-      checkBackendConnection();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // 헬스체크 폴링 제거: 실제 호출 결과로만 판단
 
   // 세션 목록 불러오기
   useEffect(() => {
@@ -268,7 +249,6 @@ export default function Home() {
     try {
       const response = await fetch("/backend/pdf-status", {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       if (response.ok) {
@@ -298,7 +278,6 @@ export default function Home() {
       console.log('PDF 목록 가져오기 시도: /backend/pdfs');
       const response = await fetch("/backend/pdfs", {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
       });
 
       console.log('PDF 목록 응답:', response.status, response.statusText);
@@ -488,13 +467,21 @@ export default function Home() {
     }
 
     try {
+      const reqId = Math.random().toString(36).slice(2, 10);
+      const t0 = performance.now();
+      console.debug(`[req:${reqId}] GET /backend/recent-questions start`);
       const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "x-user-id": "frontend_user",
+          "x-chat-id": currentSessionId || "frontend_chat",
+          "x-request-id": reqId,
+        },
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.debug(`[req:${reqId}] GET /backend/recent-questions done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
         const newQuestions = data.questions || [];
         
         // 새로운 문제가 있을 때만 상태 업데이트하고 바로 표시
@@ -504,7 +491,8 @@ export default function Home() {
           setIsProblemRequest(true); // 문제 생성 요청임을 표시
         }
       } else {
-        console.warn('문제 서버 응답 오류:', response.status);
+        const errText = await response.text().catch(() => '');
+        console.warn('문제 서버 응답 오류:', response.status, errText);
         // 서버 응답 오류 시에도 문제 컨테이너는 유지
       }
     } catch (error) {
@@ -530,9 +518,17 @@ export default function Home() {
       
       const query = `${answers.join(',')} + 문제의 답이야 채점해줘`;
       
-      const response = await fetch("/api/chat", {
+      const reqId = Math.random().toString(36).slice(2, 10);
+      const t0 = performance.now();
+      console.debug(`[req:${reqId}] POST /api/proxy/chat (grading) start`);
+      const response = await fetch("/api/proxy/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": "frontend_user",
+          "x-chat-id": "frontend_grading",
+          "x-request-id": reqId,
+        },
         body: JSON.stringify({
           message: query,
           user_id: "frontend_user",
@@ -543,6 +539,7 @@ export default function Home() {
 
       if (response.ok) {
         const data = await response.json();
+        console.debug(`[req:${reqId}] POST /api/proxy/chat (grading) done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
         let newGradingResults: {[key: string]: any} = {};
         
         if (data.grading_results) {
@@ -907,8 +904,17 @@ export default function Home() {
                 testSessions={testSessions}
                 setTestSessions={setTestSessions}
                 currentSessionId={currentSessionId}
-                setCurrentSessionId={handleSessionChange}
-                onNewChat={createNewSession}
+                setCurrentSessionId={(value) => {
+                  const next = typeof value === 'function'
+                    ? (value as (prev: string | null) => string | null)(currentSessionId)
+                    : value;
+                  if (next != null) {
+                    void handleSessionChange(next);
+                  } else {
+                    setCurrentSessionId(next);
+                  }
+                }}
+                onNewChat={() => { void createNewSession(); }}
                 isBackendConnected={isBackendConnected}
                 onDeleteSession={deleteSession}
               />
@@ -1008,7 +1014,7 @@ export default function Home() {
         filename={currentPdfFilename}
         isBackendConnected={isBackendConnected}
       />
-
+  
   </div>
   );
 }

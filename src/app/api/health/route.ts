@@ -4,8 +4,7 @@ export async function GET(request: NextRequest) {
   try {
     // 백엔드 서버들의 헬스체크
     const backendUrls = [
-      'http://localhost:8000/health',  // Simple API
-      'http://localhost:8100/health',  // BFF API (Docker)
+      'http://localhost:8100/health',  // BFF API
       'http://localhost:8124/auth/health'  // Auth API
     ];
 
