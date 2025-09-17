@@ -442,7 +442,13 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json();
         console.log('PDF 목록 데이터:', data);
-        setAvailablePdfs(data.pdfs || []);
+        const list = Array.isArray(data?.pdfs) ? data.pdfs : [];
+        // 표준화: { filename, created_at } 형태로 변환
+        const normalized = list.map((v: any) => {
+          if (typeof v === 'string') return { filename: v, created_at: null };
+          return { filename: v.filename, created_at: v.created_at ?? null };
+        });
+        setAvailablePdfs(normalized);
       } else {
         console.warn('PDF 목록 가져오기 실패:', response.status);
         setAvailablePdfs([]);
