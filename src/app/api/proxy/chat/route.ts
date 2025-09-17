@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
       'x-user-id': incomingHeaders.get('x-user-id') || 'frontend_user',
       'x-chat-id': incomingHeaders.get('x-chat-id') || 'frontend_chat',
       'x-request-id': incomingHeaders.get('x-request-id') || Math.random().toString(36).slice(2, 10),
+      // 세션 지속용
+      'x-session-id': incomingHeaders.get('x-session-id') || '',
     };
 
     const res = await fetch(url, {
@@ -28,10 +30,12 @@ export async function POST(request: NextRequest) {
     });
 
     const text = await res.text();
+    const sessionId = res.headers.get('x-session-id') || '';
     return new NextResponse(text, {
       status: res.status,
       headers: {
         'content-type': res.headers.get('content-type') || 'application/json',
+        ...(sessionId ? { 'x-session-id': sessionId } : {}),
       },
     });
   } catch (err: any) {

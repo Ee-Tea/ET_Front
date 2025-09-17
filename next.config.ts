@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
       { source: '/auth/:path*', destination: `${AUTH_ORIGIN}/auth/:path*` },
       // Backend core → BFF_ORIGIN (PDF/채팅 등)
       { source: '/backend/:path*', destination: `${BFF_ORIGIN}/:path*` },
+      // Sessions API → BFF_ORIGIN
+      { source: '/api/chat/:path*', destination: `${BFF_ORIGIN}/api/chat/:path*` },
     ];
   },
 };
