@@ -109,6 +109,7 @@ export default function Home() {
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>('');
   const syncCountRef = useRef<number>(0);
+  const questionsSeqRef = useRef<number>(0);
 
   // 유효한 세션 해시(24-hex)
   const isValidSessionId = (sid?: string | null) => !!sid && /^[a-f0-9]{24}$/i.test(sid);
@@ -177,13 +178,7 @@ export default function Home() {
           normValid.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           setTestSessions(normValid);
           console.log(reqId, 'setTestSessions', normValid.length);
-          if (!currentSessionId) {
-            const firstValid = normValid.find((s: any) => isValidSessionId(s.session_id));
-            if (firstValid) {
-              setCurrentSessionId(firstValid.session_id);
-              setCurrentChatId(String(firstValid.chat_id || ''));
-            }
-          }
+          // 초기 화면에서는 기존 세션을 자동 선택하지 않음
         } else {
           const body = await response.text().catch(() => '');
           console.warn(reqId, 'error', response.status, body);
@@ -230,6 +225,8 @@ export default function Home() {
         setParsedQuestions([]);
         setSelectedAnswers({});
         setGradingResults({});
+        setSubmittedAnswers({});
+        setShowResults(false);
         setScore(0);
         setTotalQuestions(0);
         setShowProblemAfterSubmit(false);
@@ -269,12 +266,24 @@ export default function Home() {
     // 응답 처리 중엔 세션 스위칭 금지
     if (isSubmitting) return;
     if (!isValidSessionId(sessionId)) return;
+    // 문제/채점 상태 초기화 (세션 전환 시 이전 세션의 문제 패널 상태 제거)
+    setParsedQuestions([]);
+    setSelectedAnswers({});
+    setGradingResults({});
+    setSubmittedAnswers({});
+    setShowResults(false);
+    setScore(0);
+    setTotalQuestions(0);
+    setIsProblemRequest(false);
+    setShowProblemAfterSubmit(false);
     setCurrentSessionId(sessionId);
     const sel = testSessions.find((s: any) => s.session_id === sessionId);
     setCurrentChatId(String(sel?.chat_id || ''));
     // 즉시 폴링 루프가 동일 세션으로 고정되도록 동기화 카운터 초기화
     syncCountRef.current = 0;
     await loadSessionMessages(sessionId);
+    // 해당 세션에 저장된 문제가 있으면 즉시 패널 표시 (목표 세션 고정, 경쟁 상태 방지)
+    await fetchRecentQuestions(undefined, { sessionId, force: true });
   };
 
   // 현재 세션 메시지 주기 동기화(사라짐 방지)
@@ -535,8 +544,8 @@ export default function Home() {
       lowerMessage.includes(keyword.toLowerCase())
     );
     
-    // 정처기 관련 키워드가 있고 문제 생성 요청이 있는 경우만 true 반환
-    return hasJpkiKeyword && hasGenerationRequest;
+    // 문제 생성 키워드가 포함되면 true (정처기 키워드는 선택)
+    return hasGenerationRequest;
   };
 
   // 보기 형식 정규화 함수
@@ -611,15 +620,14 @@ export default function Home() {
   };
 
   // 최근 질문 가져오기
-  const fetchRecentQuestions = async (userMessage?: string) => {
-    // 이미 문제가 표시 중이고 문제 생성 요청이면 중복 호출 방지
-    if (parsedQuestions.length > 0 && isProblemRequest) {
+  const fetchRecentQuestions = async (userMessage?: string, opts?: { sessionId?: string; force?: boolean }) => {
+    // 이미 표시 중이면 중복 호출 방지 (강제 모드 제외)
+    if (!opts?.force && parsedQuestions.length > 0 && isProblemRequest) {
       return;
     }
 
-    // 문제 생성 요청이 아니면 문제 컨테이너를 표시하지 않음
-    if (userMessage && !isProblemGenerationRequest(userMessage)) {
-      setIsProblemRequest(false);
+    // 문제 생성 요청이 아닌 경우 (강제 모드 제외)
+    if (!opts?.force && userMessage && !isProblemGenerationRequest(userMessage)) {
       return;
     }
 
@@ -630,30 +638,86 @@ export default function Home() {
     }
 
     try {
+      const targetSid = isValidSessionId(opts?.sessionId) ? (opts!.sessionId as string) : (currentSessionId as string);
+      const mySeq = ++questionsSeqRef.current;
       const reqId = Math.random().toString(36).slice(2, 10);
       const t0 = performance.now();
       console.debug(`[req:${reqId}] GET /backend/recent-questions start`);
       const headers: Record<string, string> = {
         "x-user-id": user?.id || getGuestId(),
-        "x-chat-id": String(currentChatId || ''),
         "x-request-id": reqId,
       };
-      if (isValidSessionId(currentSessionId)) headers["x-session-id"] = currentSessionId as string;
-      const response = await fetch(`/backend/recent-questions`, {
-        method: "GET",
-        headers,
-      });
+      if (isValidSessionId(targetSid)) headers["x-session-id"] = targetSid as string;
+      // 세션 고정: 로그인 시 세션 기반 키 사용을 보장하기 위해 query로도 전달
+      const qs = isValidSessionId(targetSid) ? `?session_id=${encodeURIComponent(targetSid as string)}&limit=10` : `?limit=10`;
+      let attempt = 0;
+      let response: Response | null = null;
+      let lastErrBody = '';
+      while (attempt < 3) {
+        response = await fetch(`/backend/recent-questions${qs}`, {
+          method: "GET",
+          headers,
+        });
+        if (response.ok) break;
+        try { lastErrBody = await response.text(); } catch { lastErrBody = ''; }
+        // 5xx인 경우 300ms, 600ms 재시도
+        if (response.status >= 500) {
+          await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+          attempt += 1;
+          continue;
+        }
+        break;
+      }
+      if (!response) return;
 
       if (response.ok) {
-        const data = await response.json();
+        let data = await response.json();
         console.debug(`[req:${reqId}] GET /backend/recent-questions done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
-        const newQuestions = data.questions || [];
-        
-        // 새로운 문제가 있을 때만 상태 업데이트하고 바로 표시
+        let newQuestions = data.questions || [];
+
+        // 비어있으면 짧게 재시도(최대 5회, 400ms 간격) — 새 세션 직후 전파 지연 대비
+        if (newQuestions.length === 0 && userMessage && isProblemGenerationRequest(userMessage)) {
+          for (let i = 0; i < 5; i++) {
+            await new Promise(r => setTimeout(r, 400));
+            const r2 = await fetch(`/backend/recent-questions${qs}`, { method: 'GET', headers });
+            if (!r2.ok) break;
+            const d2 = await r2.json();
+            if (Array.isArray(d2?.questions) && d2.questions.length > 0) {
+              data = d2;
+              newQuestions = d2.questions;
+              break;
+            }
+          }
+        }
+
+        // 일부만 내려오는 경우(예: 10개 요청인데 9개만) 추가 재시도하여 보정
+        if (Array.isArray(newQuestions) && newQuestions.length > 0 && newQuestions.length < 10) {
+          for (let i = 0; i < 3; i++) {
+            await new Promise(r => setTimeout(r, 250));
+            const r3 = await fetch(`/backend/recent-questions${qs}`, { method: 'GET', headers });
+            if (!r3.ok) break;
+            const d3 = await r3.json();
+            if (Array.isArray(d3?.questions) && d3.questions.length > newQuestions.length) {
+              data = d3;
+              newQuestions = d3.questions;
+              break;
+            }
+          }
+        }
+
+        // 다른 최신 요청이 있다면 폐기
+        if (mySeq !== questionsSeqRef.current) {
+          return;
+        }
         if (newQuestions.length > 0) {
           setParsedQuestions(newQuestions);
-          setShowProblemAfterSubmit(true); // 문제 생성 시 바로 표시
-          setIsProblemRequest(true); // 문제 생성 요청임을 표시
+          setShowProblemAfterSubmit(true);
+          setIsProblemRequest(true);
+        } else {
+          if (userMessage && isProblemGenerationRequest(userMessage)) {
+            setIsProblemRequest(true);
+            setShowProblemAfterSubmit(true);
+          }
         }
       } else {
         const errText = await response.text().catch(() => '');

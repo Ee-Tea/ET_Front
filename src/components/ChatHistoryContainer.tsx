@@ -57,9 +57,16 @@ export default function ChatHistoryContainer({
 
   // 클릭 가능한 세션만 노출 (세션ID 유효)
   const displaySessions = React.useMemo(() => {
-    const filtered = uniqueSessions.filter(s => isValidSid(s?.session_id));
+    // 1) 유효한 session_id만
+    let filtered = uniqueSessions.filter(s => isValidSid(s?.session_id));
     if (filtered.length !== uniqueSessions.length) {
       console.warn('[sidebar] filtered invalid sessions', uniqueSessions.length - filtered.length);
+    }
+    // 2) 제목 없는 세션 제외 (UI에서 '새 채팅'으로 표시될 것들)
+    const before = filtered.length;
+    filtered = filtered.filter(s => typeof s?.title === 'string' && s.title.trim().length > 0);
+    if (filtered.length !== before) {
+      console.warn('[sidebar] filtered untitled sessions', before - filtered.length);
     }
     return filtered;
   }, [uniqueSessions]);

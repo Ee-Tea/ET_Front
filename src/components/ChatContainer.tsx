@@ -38,8 +38,8 @@ const isProblemGenerationRequest = (message: string) => {
     lowerMessage.includes(keyword.toLowerCase())
   );
   
-  // 정처기 관련 키워드가 있고 문제 생성 요청이 있는 경우만 true 반환
-  return hasJpkiKeyword && hasGenerationRequest;
+  // 문제 생성 요청 키워드가 있으면 문제 패널 트리거 (정처기 키워드는 필수 아님)
+  return hasGenerationRequest;
 };
 
 interface ChatContainerProps {
@@ -165,10 +165,28 @@ export default function ChatContainer({
 
   // 세션 보장: 없으면 생성 후 ref에 고정
   const ensureSession = async (uid: string): Promise<string> => {
-    // 1) 초기 화면(대화 비어있음)에서는 항상 새 세션을 강제 생성하여 과거 세션으로 이어지는 것을 방지
-    if (messages.length === 0 && createNewSession) {
+    // 1) 이미 바인딩된 세션이 있으면 그대로 사용
+    if (sessionIdRef.current) return sessionIdRef.current;
+    // 2) 부모에서 전달된 세션을 우선 사용하여 중복 생성 방지 (특히 '새 채팅' 직후)
+    if (currentSessionId) {
+      sessionIdRef.current = currentSessionId;
+      debugIds('ensureSession:bind-prop', { sid: currentSessionId });
+      return currentSessionId;
+    }
+    // 3) 초기 화면(대화 비어있음)이고 상위 세션이 아직 없다면: 잠시 대기하여 상위가 세션을 설정할 기회를 줌(레코딩/저사양 환경 레이스 완화)
+    if (messages.length === 0 && !currentSessionId) {
+      for (let i = 0; i < 10; i++) { // 최대 ~500ms 대기
+        await new Promise(r => setTimeout(r, 50));
+        if (currentSessionId) {
+          sessionIdRef.current = currentSessionId;
+          debugIds('ensureSession:bind-prop-delayed', { sid: currentSessionId, waitedMs: (i + 1) * 50 });
+          return currentSessionId;
+        }
+      }
+    }
+    // 3-b) 여전히 없으면 새 세션 생성 (첫 전송은 항상 신규 세션)
+    if (messages.length === 0 && createNewSession && !currentSessionId) {
       const previous = sessionIdRef.current || currentSessionId || '';
-      sessionIdRef.current = null;
       const sid = await Promise.resolve(createNewSession());
       if (sid) {
         sessionIdRef.current = sid;
@@ -177,15 +195,7 @@ export default function ChatContainer({
         return sid;
       }
     }
-    // 2) 기존에 바인딩된 세션이 있으면 그대로 사용
-    if (sessionIdRef.current) return sessionIdRef.current;
-    // 3) 부모에서 전달된 세션을 우선 사용하여 중복 생성 방지
-    if (currentSessionId) {
-      sessionIdRef.current = currentSessionId;
-      debugIds('ensureSession:bind-prop', { sid: currentSessionId });
-      return currentSessionId;
-    }
-    // 4) 없으면 새 세션 생성
+    // 4) 여전히 없으면 새 세션 생성
     if (createNewSession) {
       const sid = await Promise.resolve(createNewSession());
       if (sid) {
@@ -292,7 +302,7 @@ export default function ChatContainer({
     setIsLoading(true);
 
     // 문제 생성 요청인지 확인하고 즉시 문제 컨테이너 표시
-    const isProblemRequest = isProblemGenerationRequest(message);
+    const isProblemRequest = isProblemGenerationRequest(text);
 
     try {
       const reqId = Math.random().toString(36).slice(2, 10);
@@ -341,16 +351,9 @@ export default function ChatContainer({
       });
       // 외부 저장 제거: 서버에서 이미 user/assistant 메시지를 저장함
 
-      // 세션 바인딩 이후에만 문제 컨테이너 트리거
-      if (isProblemRequest && data.response && !message.includes('채점') && (
-        data.response.includes('문제') && (
-          data.response.includes('생성') || 
-          data.response.includes('다음 중') ||
-          data.response.includes('정답:') ||
-          data.response.includes('해설:')
-        )
-      )) {
-        setTimeout(() => onProblemDetected(message), 1000);
+      // 세션 바인딩 이후: 문제 생성 요청이면 응답 내용과 무관하게 문제 목록 폴링을 트리거
+      if (isProblemRequest) {
+        setTimeout(() => onProblemDetected(text), 300);
       }
     } catch (error) {
       console.error("백엔드 API 호출 실패:", error);
@@ -426,7 +429,7 @@ export default function ChatContainer({
             {/* 사이드바 토글 버튼 */}
             <button
               onClick={onToggleSidebar}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-700 rounded-lg"
               title={isSidebarOpen ? "사이드바 숨기기" : "사이드바 보이기"}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
