@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChatHistoryContainer from '@/components/ChatHistoryContainer';
 import ProblemContainer from '@/components/ProblemContainer';
 import PdfContainer from '@/components/PdfContainer';
@@ -108,6 +108,10 @@ export default function Home() {
   // 세션 관련 상태
   const [currentMessages, setCurrentMessages] = useState<any[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string>('');
+  const syncCountRef = useRef<number>(0);
+
+  // 유효한 세션 해시(24-hex)
+  const isValidSessionId = (sid?: string | null) => !!sid && /^[a-f0-9]{24}$/i.test(sid);
 
   // 게스트 ID 헬퍼
   const getGuestId = () => {
@@ -137,26 +141,38 @@ export default function Home() {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const response = await fetch(`/api/chat/sessions?user_id=${user?.id || getGuestId()}`);
+        const reqId = `[sessions:${Date.now().toString(36)}]`;
+        const uid = user?.id || getGuestId();
+        const url = `/api/chat/sessions`;
+        console.log(reqId, 'GET', url);
+        const response = await fetch(url, { headers: { 'x-request-id': reqId, 'x-user-id': uid } });
+        console.log(reqId, 'status', response.status);
         if (response.ok) {
           const data = await response.json();
-          const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+          console.log(reqId, 'raw data', data);
+          const sessions = Array.isArray(data) ? data : (Array.isArray(data?.sessions) ? data.sessions : []);
+          console.log(reqId, 'received sessions', sessions.length);
           // 최신이 위로 오도록 정렬
           sessions.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           setTestSessions(sessions);
-          if (!currentSessionId && sessions.length > 0) {
-            setCurrentSessionId(sessions[0].session_id);
-            setCurrentChatId(String(sessions[0].chat_id || ''));
+          console.log(reqId, 'setTestSessions', sessions.length);
+          if (!currentSessionId) {
+            const firstValid = sessions.find((s: any) => isValidSessionId(s.session_id));
+            if (firstValid) {
+              setCurrentSessionId(firstValid.session_id);
+              setCurrentChatId(String(firstValid.chat_id || ''));
+            }
           }
+        } else {
+          const body = await response.text().catch(() => '');
+          console.warn(reqId, 'error', response.status, body);
         }
       } catch (error) {
-        console.error('세션 목록 불러오기 실패:', error);
+        console.error('[sessions] fetch failed', error);
       }
     };
 
-    if (isLoggedIn) {
-      fetchSessions();
-    }
+    fetchSessions();
   }, [isLoggedIn, user?.id]);
 
   // 새 세션 생성
@@ -175,12 +191,23 @@ export default function Home() {
 
       if (response.ok) {
         const newSession = await response.json();
-        setTestSessions(prev => [newSession, ...prev]);
-        setCurrentSessionId(newSession.session_id);
-        setCurrentChatId(String(newSession.chat_id || ''));
+        // 메인 채팅창 즉시 초기화 (문제 창 숨김 효과)
         setCurrentMessages([]);
         setMessage('');
         setMiniMessage('');
+        // 문제 컴포넌트 상태도 완전 초기화
+        setParsedQuestions([]);
+        setSelectedAnswers({});
+        setGradingResults({});
+        setScore(0);
+        setTotalQuestions(0);
+        setShowProblemAfterSubmit(false);
+        setIsProblemRequest(false);
+        // 사이드탭 세션 목록 갱신 전에 현재 세션을 우선 고정
+        setCurrentSessionId(newSession.session_id);
+        setCurrentChatId(String(newSession.chat_id || ''));
+        // 사이드탭 목록 상단에 삽입
+        setTestSessions(prev => [newSession, ...prev]);
         return newSession.session_id as string;
       }
     } catch (error) {
@@ -206,11 +233,64 @@ export default function Home() {
   const handleSessionChange = async (sessionId: string) => {
     // 응답 처리 중엔 세션 스위칭 금지
     if (isSubmitting) return;
+    if (!isValidSessionId(sessionId)) return;
     setCurrentSessionId(sessionId);
     const sel = testSessions.find((s: any) => s.session_id === sessionId);
     setCurrentChatId(String(sel?.chat_id || ''));
+    // 즉시 폴링 루프가 동일 세션으로 고정되도록 동기화 카운터 초기화
+    syncCountRef.current = 0;
     await loadSessionMessages(sessionId);
   };
+
+  // 현재 세션 메시지 주기 동기화(사라짐 방지)
+  useEffect(() => {
+    if (!isValidSessionId(currentSessionId)) return;
+    let cancelled = false;
+    let inFlight = false;
+    let backoffMs = 3000;
+    syncCountRef.current = 0; // 세션 변경 시 초기화
+    const sync = async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        // 내부 프록시 경유로 BFF 호출 (브라우저-네트워크 이슈 완화)
+        const res = await fetch(`/api/proxy/sessions/${currentSessionId}/messages`, { headers: { 'x-session-id': currentSessionId as string } });
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.warn('[sync] messages fetch failed', res.status, body);
+          // 5xx면 백오프
+          if (res.status >= 500) {
+            backoffMs = Math.min(backoffMs * 2, 30000);
+          }
+          return;
+        }
+        backoffMs = 3000; // 성공 시 폴백
+        const msgs = await res.json();
+        if (!cancelled) {
+          const newLen = Array.isArray(msgs) ? msgs.length : 0;
+          // 길이가 줄어드는 경우는 무시하여 깜빡임 방지
+          if (newLen >= syncCountRef.current) {
+            setCurrentMessages(msgs);
+            syncCountRef.current = newLen;
+          }
+        }
+      } catch (e) {
+        console.warn('[sync] error', e);
+      } finally {
+        inFlight = false;
+      }
+    };
+  
+    // 즉시 1회, 이후 주기/백오프 기반 폴링
+    let timer: any;
+    const loop = async () => {
+      await sync();
+      if (!cancelled) timer = setTimeout(loop, backoffMs);
+    };
+    loop();
+  
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [currentSessionId]);
 
   // 메시지 저장
   const saveMessage = async (message: any) => {
@@ -1011,21 +1091,14 @@ export default function Home() {
               message={message}
               setMessage={setMessage}
               currentSessionId={currentSessionId}
-              currentChatId={currentChatId}
+              currentChatId={''}
               currentMessages={currentMessages}
               setCurrentMessages={setCurrentMessages}
               saveMessage={saveMessage}
               createNewSession={createNewSession}
               clearCurrentSession={clearCurrentSession}
               onSessionBound={(sid) => {
-                if (!currentSessionId) {
-                  setCurrentSessionId(sid);
-                }
-              }}
-              onChatIdBound={(cid) => {
-                if (!currentChatId) {
-                  setCurrentChatId(String(cid));
-                }
+                if (!currentSessionId) setCurrentSessionId(sid);
               }}
             />
           </div>

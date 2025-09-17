@@ -23,6 +23,24 @@ export default function ChatHistoryContainer({
   onDeleteSession,
   onOpenLogin
 }: ChatHistoryContainerProps) {
+  React.useEffect(() => {
+    console.log('[sidebar] render with sessions =', Array.isArray(testSessions) ? testSessions.length : null, 'currentSessionId =', currentSessionId);
+  }, [testSessions, currentSessionId]);
+  
+  // 세션 배열 중복/무효 ID 정리 (key 경고 방지)
+  const uniqueSessions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (let i = 0; i < testSessions.length; i++) {
+      const s = testSessions[i];
+      const id = (s && typeof s.session_id === 'string' && s.session_id) ? s.session_id : '';
+      const dedupeKey = id || `${s?.title ?? ''}:${s?.created_at ?? ''}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      result.push(s);
+    }
+    return result;
+  }, [testSessions]);
   return (
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
@@ -44,21 +62,24 @@ export default function ChatHistoryContainer({
             <span>새 채팅</span>
           </button>
           
-          {testSessions.length === 0 ? (
+          {uniqueSessions.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
               <p className="text-sm">아직 채팅이 없습니다</p>
               <p className="text-xs mt-1">새 채팅을 시작해보세요</p>
             </div>
           ) : (
-            testSessions.map((session) => (
+            uniqueSessions.map((session, idx) => (
               <div
-                key={session.session_id}
+                key={(session && session.session_id) ? String(session.session_id) : `${session?.title ?? 'untitled'}:${session?.created_at ?? ''}:${idx}`}
                 className={`p-3 rounded-lg cursor-pointer transition-colors ${
                   currentSessionId === session.session_id
                     ? 'bg-blue-100 text-blue-800 border border-blue-200'
                     : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 }`}
-                onClick={() => setCurrentSessionId(session.session_id)}
+                onClick={() => {
+                  console.log('[sidebar] click session', session.session_id);
+                  setCurrentSessionId(session.session_id)
+                }}
               >
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

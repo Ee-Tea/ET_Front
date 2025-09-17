@@ -61,7 +61,6 @@ interface ChatContainerProps {
   createNewSession?: () => Promise<string | null> | void;
   clearCurrentSession?: () => Promise<void> | void;
   onSessionBound?: (sessionId: string) => void;
-  onChatIdBound?: (chatId: string) => void;
 }
 
 export default function ChatContainer({
@@ -83,7 +82,6 @@ export default function ChatContainer({
   createNewSession,
   clearCurrentSession
   , onSessionBound
-  , onChatIdBound
 }: ChatContainerProps) {
   const { user } = useAuth();
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -142,33 +140,34 @@ export default function ChatContainer({
     return { uid, cid };
   };
 
-  const resolveChatIdFromSession = async (sid: string, uid: string) => {
-    try {
-      const resp = await fetch(`/backend/recent-questions?session_id=${encodeURIComponent(sid)}`, {
-        method: 'GET',
-        headers: { 'x-user-id': uid },
-      });
-      if (!resp.ok) return '';
-      const data = await resp.json();
-      const sessionStr = data?.session || '';
-      const parts = typeof sessionStr === 'string' ? sessionStr.split(':') : [];
-      const chatId = parts.length >= 2 ? parts[1] : '';
-      return chatId || '';
-    } catch { return ''; }
-  };
 
-  // 외부로부터 전달된 currentSessionId가 바뀌면 ref도 동기화(사용자 명시 전환용)
+  // 외부로부터 전달된 currentSessionId가 바뀌면 항상 ref도 동기화하고, 내부 메시지를 초기화
+  const prevSessionPropRef = useRef<string | null>(null);
   useEffect(() => {
-    // 외부 상태가 전달된 최초 시점에만 ref 채움(전송 도중 덮어쓰기 방지)
-    if (currentSessionId && !sessionIdRef.current) {
+    if (currentSessionId && currentSessionId !== prevSessionPropRef.current) {
       sessionIdRef.current = currentSessionId;
+      prevSessionPropRef.current = currentSessionId;
+      setMessages([]);
       debugIds('bind-from-props', { bind: currentSessionId });
+    } else if (!currentSessionId && prevSessionPropRef.current !== null) {
+      // 세션 해제 시 내부도 초기화
+      sessionIdRef.current = null;
+      prevSessionPropRef.current = null;
+      setMessages([]);
+      debugIds('unbind-from-props');
     }
   }, [currentSessionId]);
 
   // 세션 보장: 없으면 생성 후 ref에 고정
   const ensureSession = async (uid: string): Promise<string> => {
     if (sessionIdRef.current) return sessionIdRef.current;
+    // 우선: 부모에서 전달된 세션을 우선 사용하여 중복 생성 방지
+    if (currentSessionId) {
+      sessionIdRef.current = currentSessionId;
+      debugIds('ensureSession:bind-prop', { sid: currentSessionId });
+      return currentSessionId;
+    }
+    // 없으면 새 세션 생성
     if (createNewSession) {
       const sid = await Promise.resolve(createNewSession());
       if (sid) {
@@ -177,11 +176,6 @@ export default function ChatContainer({
         debugIds('ensureSession:new', { sid });
         return sid;
       }
-    }
-    // 마지막 fallback: 외부 currentSessionId를 사용
-    if (currentSessionId) {
-      sessionIdRef.current = currentSessionId;
-      return currentSessionId;
     }
     // 실패 시 게스트용 임시 식별 (서버가 다시 부여할 수 있음)
     return '';
@@ -194,19 +188,18 @@ export default function ChatContainer({
     }
   }, [externalMessage]);
 
-  // 세션 전환/외부 메시지 변경 시 내부 메시지 초기화
+  // 외부 메시지가 늘어난 경우에만 내부 상태를 동기화 (빈 목록으로는 덮어쓰지 않음)
   useEffect(() => {
-    if (currentMessages && currentMessages.length) {
-      const mapped = currentMessages.map((m: any) => ({
-        role: m.role || m.speaker || 'user',
-        content: m.content || '',
-      }));
+    if (isLoading) return;
+    if (!currentMessages) return;
+    const mapped = currentMessages.map((m: any) => ({
+      role: m.role || m.speaker || 'user',
+      content: m.content || '',
+    }));
+    if (mapped.length > messages.length) {
       setMessages(mapped);
-    } else if (currentMessages && currentMessages.length === 0) {
-      // 세션 생성 직후(전송 진행 중)에는 비어있는 외부 상태로 덮어쓰지 않음
-      if (!isLoading) setMessages([]);
     }
-  }, [currentSessionId, currentMessages, isLoading]);
+  }, [currentMessages, isLoading]);
 
   // 자동 전송 이벤트 리스너
   useEffect(() => {
@@ -265,12 +258,9 @@ export default function ChatContainer({
 
     const userMessage = { role: "user", content: message };
     setMessages(prev => [...prev, userMessage]);
-    // 외부 저장
+    // 세션 보장
     try {
-      const sid = await ensureSession(user?.id || getGuestId());
-      if (saveMessage && sid) {
-        await Promise.resolve(saveMessage({ role: 'user', content: message }));
-      }
+      await ensureSession(user?.id || getGuestId());
     } catch {}
     setMessage("");
     setIsLoading(true);
@@ -288,20 +278,18 @@ export default function ChatContainer({
       console.log(`[req:${reqId}] POST /api/proxy/chat start`);
       const { uid, cid } = resolveIds();
       const sid = await ensureSession(uid);
-      debugIds('sendMessage:before-fetch', { reqId, uid, cid, sid });
+      debugIds('sendMessage:before-fetch', { reqId, uid, sid });
       const response = await fetch("/api/proxy/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-user-id": uid,
-          ...(cid ? { "x-chat-id": cid } : {}),
           "x-request-id": reqId,
           ...(sid ? { 'x-session-id': sid } : {}),
         },
         body: JSON.stringify({
           message: message || '안녕하세요',
           user_id: uid,
-          ...(cid ? { chat_id: cid } : {}),
           ...(sid ? { session_id: sid } : {}),
         }),
       });
@@ -316,13 +304,6 @@ export default function ChatContainer({
         sessionIdRef.current = resSessionId;
         if (onSessionBound) onSessionBound(resSessionId);
       }
-      if ((!currentChatId || String(currentChatId).length === 0) && resSessionId && onChatIdBound) {
-        const mappedCid = await resolveChatIdFromSession(resSessionId, uid);
-        if (mappedCid) {
-          onChatIdBound(String(mappedCid));
-          debugIds('mapped-chat-id', { mappedCid });
-        }
-      }
       debugIds('sendMessage:after-fetch', { reqId, res_sid_header: response.headers.get('x-session-id') || '', res_sid_body: data?.session_id || '' });
       // eslint-disable-next-line no-console
       console.log(`[req:${reqId}] POST /api/proxy/chat done`, { status: response.status, ms: (performance.now() - t0).toFixed(1) });
@@ -330,14 +311,12 @@ export default function ChatContainer({
         role: "assistant",
         content: data.response || "응답을 생성할 수 없습니다."
       };
-      setMessages(prev => [...prev, assistantMessage]);
-      // 외부 저장
-      try {
-        const sidForSave = sessionIdRef.current || currentSessionId;
-        if (saveMessage && sidForSave) {
-          await Promise.resolve(saveMessage({ role: 'assistant', content: assistantMessage.content }));
-        }
-      } catch {}
+      // 서버 응답이 우리 낙관적 메시지 개수보다 적으면 덮어쓰지 않음
+      setMessages(prev => {
+        const next = [...prev, assistantMessage];
+        return next;
+      });
+      // 외부 저장 제거: 서버에서 이미 user/assistant 메시지를 저장함
 
       // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
       const isProblemRequest = isProblemGenerationRequest(message);
