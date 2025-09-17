@@ -88,6 +88,7 @@ export default function ChatContainer({
   const settingsRef = useRef<HTMLDivElement>(null);
   const autoSendInFlight = useRef(false);
   const sendInFlight = useRef(false);
+  const pendingUserRef = useRef<string | null>(null);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -145,10 +146,14 @@ export default function ChatContainer({
   const prevSessionPropRef = useRef<string | null>(null);
   useEffect(() => {
     if (currentSessionId && currentSessionId !== prevSessionPropRef.current) {
+      const isFirstBind = prevSessionPropRef.current === null;
       sessionIdRef.current = currentSessionId;
       prevSessionPropRef.current = currentSessionId;
-      setMessages([]);
-      debugIds('bind-from-props', { bind: currentSessionId });
+      // 세션 전환(이전 세션 존재)일 때만 메시지 초기화. 최초 바인딩(첫 전송 직후)은 초기화하지 않음.
+      if (!isFirstBind) {
+        setMessages([]);
+      }
+      debugIds('bind-from-props', { bind: currentSessionId, first: isFirstBind });
     } else if (!currentSessionId && prevSessionPropRef.current !== null) {
       // 세션 해제 시 내부도 초기화
       sessionIdRef.current = null;
@@ -160,14 +165,27 @@ export default function ChatContainer({
 
   // 세션 보장: 없으면 생성 후 ref에 고정
   const ensureSession = async (uid: string): Promise<string> => {
+    // 1) 초기 화면(대화 비어있음)에서는 항상 새 세션을 강제 생성하여 과거 세션으로 이어지는 것을 방지
+    if (messages.length === 0 && createNewSession) {
+      const previous = sessionIdRef.current || currentSessionId || '';
+      sessionIdRef.current = null;
+      const sid = await Promise.resolve(createNewSession());
+      if (sid) {
+        sessionIdRef.current = sid;
+        if (onSessionBound) onSessionBound(sid);
+        debugIds('ensureSession:new-first-send', { sid, previous });
+        return sid;
+      }
+    }
+    // 2) 기존에 바인딩된 세션이 있으면 그대로 사용
     if (sessionIdRef.current) return sessionIdRef.current;
-    // 우선: 부모에서 전달된 세션을 우선 사용하여 중복 생성 방지
+    // 3) 부모에서 전달된 세션을 우선 사용하여 중복 생성 방지
     if (currentSessionId) {
       sessionIdRef.current = currentSessionId;
       debugIds('ensureSession:bind-prop', { sid: currentSessionId });
       return currentSessionId;
     }
-    // 없으면 새 세션 생성
+    // 4) 없으면 새 세션 생성
     if (createNewSession) {
       const sid = await Promise.resolve(createNewSession());
       if (sid) {
@@ -177,7 +195,7 @@ export default function ChatContainer({
         return sid;
       }
     }
-    // 실패 시 게스트용 임시 식별 (서버가 다시 부여할 수 있음)
+    // 5) 실패 시 게스트용 임시 식별 (서버가 다시 부여할 수 있음)
     return '';
   };
 
@@ -190,16 +208,20 @@ export default function ChatContainer({
 
   // 외부 메시지가 늘어난 경우에만 내부 상태를 동기화 (빈 목록으로는 덮어쓰지 않음)
   useEffect(() => {
-    if (isLoading) return;
     if (!currentMessages) return;
     const mapped = currentMessages.map((m: any) => ({
       role: m.role || m.speaker || 'user',
       content: m.content || '',
     }));
-    if (mapped.length > messages.length) {
-      setMessages(mapped);
+    const pending = pendingUserRef.current;
+    const hasPendingInServer = !!pending && mapped.some((m: any) => m.role === 'user' && m.content === pending);
+    if (hasPendingInServer) pendingUserRef.current = null;
+    const display = (!pending || hasPendingInServer) ? mapped : [{ role: 'user', content: pending }, ...mapped];
+    // 중복 렌더 방지
+    if (JSON.stringify(display) !== JSON.stringify(messages)) {
+      setMessages(display);
     }
-  }, [currentMessages, isLoading]);
+  }, [currentMessages]);
 
   // 자동 전송 이벤트 리스너
   useEffect(() => {
@@ -210,13 +232,10 @@ export default function ChatContainer({
       if (isLoading || !isBackendConnected) return;
       autoSendInFlight.current = true;
       setMessage(autoMessage);
-      // 문제 생성 요청이면 먼저 컨테이너 표시
-      if (isProblemGenerationRequest(autoMessage)) {
-        setTimeout(() => onProblemDetected(autoMessage), 100);
-      }
+      // 문제 생성 요청이어도, 세션 바인딩 후(sendMessage 내부에서) 트리거하도록 변경
       setTimeout(async () => {
         try {
-          await sendMessage();
+          await sendMessage(autoMessage);
         } finally {
           autoSendInFlight.current = false;
         }
@@ -240,8 +259,9 @@ export default function ChatContainer({
     };
   }, [isLoading, isBackendConnected]);
 
-  const sendMessage = async () => {
-    if (!message.trim()) return;
+  const sendMessage = async (forceMessage?: string) => {
+    const text = (forceMessage ?? message).trim();
+    if (!text) return;
     if (sendInFlight.current) return;
     sendInFlight.current = true;
 
@@ -256,20 +276,23 @@ export default function ChatContainer({
       return;
     }
 
-    const userMessage = { role: "user", content: message };
-    setMessages(prev => [...prev, userMessage]);
+    const userMessage = { role: "user", content: text };
+    // 중복 삽입 방지: 같은 내용의 사용자 메시지가 마지막에 이미 있으면 추가하지 않음
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === 'user' && (last as any).content === text) return prev;
+      return [...prev, userMessage];
+    });
+    pendingUserRef.current = text;
     // 세션 보장
     try {
       await ensureSession(user?.id || getGuestId());
     } catch {}
-    setMessage("");
+    if (!forceMessage) setMessage("");
     setIsLoading(true);
 
     // 문제 생성 요청인지 확인하고 즉시 문제 컨테이너 표시
     const isProblemRequest = isProblemGenerationRequest(message);
-    if (isProblemRequest) {
-      setTimeout(() => onProblemDetected(message), 100);
-    }
 
     try {
       const reqId = Math.random().toString(36).slice(2, 10);
@@ -288,7 +311,7 @@ export default function ChatContainer({
           ...(sid ? { 'x-session-id': sid } : {}),
         },
         body: JSON.stringify({
-          message: message || '안녕하세요',
+          message: text || '안녕하세요',
           user_id: uid,
           ...(sid ? { session_id: sid } : {}),
         }),
@@ -318,8 +341,7 @@ export default function ChatContainer({
       });
       // 외부 저장 제거: 서버에서 이미 user/assistant 메시지를 저장함
 
-      // 응답 완료 후 문제 목록 새로고침 (이미 문제 컨테이너는 표시됨)
-      const isProblemRequest = isProblemGenerationRequest(message);
+      // 세션 바인딩 이후에만 문제 컨테이너 트리거
       if (isProblemRequest && data.response && !message.includes('채점') && (
         data.response.includes('문제') && (
           data.response.includes('생성') || 
@@ -558,7 +580,7 @@ export default function ChatContainer({
             
             {/* 전송 버튼 */}
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={isLoading || !message.trim() || !isBackendConnected}
               className="bg-green-500 text-white rounded-lg p-2 hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >

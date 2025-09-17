@@ -23,10 +23,23 @@ export default function ChatHistoryContainer({
   onDeleteSession,
   onOpenLogin
 }: ChatHistoryContainerProps) {
+  const toPlus9 = (iso?: string) => {
+    try {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+      return kst.toLocaleString();
+    } catch {
+      return iso || '';
+    }
+  };
   React.useEffect(() => {
     console.log('[sidebar] render with sessions =', Array.isArray(testSessions) ? testSessions.length : null, 'currentSessionId =', currentSessionId);
   }, [testSessions, currentSessionId]);
   
+  const isValidSid = (sid: any) => typeof sid === 'string' && /^[a-f0-9]{24}$/i.test(sid);
+
   // 세션 배열 중복/무효 ID 정리 (key 경고 방지)
   const uniqueSessions = React.useMemo(() => {
     const seen = new Set<string>();
@@ -41,6 +54,16 @@ export default function ChatHistoryContainer({
     }
     return result;
   }, [testSessions]);
+
+  // 클릭 가능한 세션만 노출 (세션ID 유효)
+  const displaySessions = React.useMemo(() => {
+    const filtered = uniqueSessions.filter(s => isValidSid(s?.session_id));
+    if (filtered.length !== uniqueSessions.length) {
+      console.warn('[sidebar] filtered invalid sessions', uniqueSessions.length - filtered.length);
+    }
+    return filtered;
+  }, [uniqueSessions]);
+
   return (
     <div className="w-full h-full bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col">
       {/* 헤더 */}
@@ -62,13 +85,13 @@ export default function ChatHistoryContainer({
             <span>새 채팅</span>
           </button>
           
-          {uniqueSessions.length === 0 ? (
+          {displaySessions.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
               <p className="text-sm">아직 채팅이 없습니다</p>
               <p className="text-xs mt-1">새 채팅을 시작해보세요</p>
             </div>
           ) : (
-            uniqueSessions.map((session, idx) => (
+            displaySessions.map((session, idx) => (
               <div
                 key={(session && session.session_id) ? String(session.session_id) : `${session?.title ?? 'untitled'}:${session?.created_at ?? ''}:${idx}`}
                 className={`p-3 rounded-lg cursor-pointer transition-colors ${
@@ -77,7 +100,8 @@ export default function ChatHistoryContainer({
                     : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 }`}
                 onClick={() => {
-                  console.log('[sidebar] click session', session.session_id);
+                  console.log('[sidebar] click session', session);
+                  if (!isValidSid(session.session_id)) return;
                   setCurrentSessionId(session.session_id)
                 }}
               >
@@ -88,7 +112,7 @@ export default function ChatHistoryContainer({
                   <span className="text-sm truncate">{session.title || '새 채팅'}</span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {session.created_at ? new Date(session.created_at).toLocaleString() : ''}
+                  {session.created_at ? toPlus9(session.created_at) : ''}
                 </div>
               </div>
             ))

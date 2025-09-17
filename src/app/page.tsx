@@ -143,21 +143,42 @@ export default function Home() {
       try {
         const reqId = `[sessions:${Date.now().toString(36)}]`;
         const uid = user?.id || getGuestId();
-        const url = `/api/chat/sessions`;
+        const url = `/backend/api/chat/sessions`;
         console.log(reqId, 'GET', url);
         const response = await fetch(url, { headers: { 'x-request-id': reqId, 'x-user-id': uid } });
         console.log(reqId, 'status', response.status);
         if (response.ok) {
           const data = await response.json();
           console.log(reqId, 'raw data', data);
-          const sessions = Array.isArray(data) ? data : (Array.isArray(data?.sessions) ? data.sessions : []);
-          console.log(reqId, 'received sessions', sessions.length);
+          const raw = Array.isArray(data) ? data : (Array.isArray(data?.sessions) ? data.sessions : []);
+          // 표준화: session_id/chat_id/created_at/title/user_id
+          const norm = raw
+            .filter((s: any) => !!s)
+            .map((s: any) => ({
+              session_id: s.session_id || s.sessionId || s.id || '',
+              user_id: s.user_id || s.userId || uid,
+              chat_id: String(s.chat_id ?? s.chatId ?? ''),
+              created_at: s.created_at || s.createdAt || s.updated_at || new Date().toISOString(),
+              title: s.title || '',
+              status: s.status || 'active',
+              service_type: s.service_type || s.serviceType || 'teacher',
+            }))
+            .filter((s: any) => typeof s.session_id === 'string' && s.session_id.length > 0);
+          const dropped = raw.length - norm.length;
+          // 24-hex 유효성 필터 적용
+          const normValid = norm
+            .filter((s: any) => isValidSessionId(s.session_id))
+            // 대화가 존재하는 세션만 표시 (has_messages가 false로 내려오면 제외, undefined는 포함)
+            .filter((s: any) => (s.has_messages === undefined ? true : !!s.has_messages));
+          const hexDropped = norm.length - normValid.length;
+          if (dropped > 0 || hexDropped > 0) console.warn(reqId, 'dropped invalid sessions', { dropped, hexDropped });
+          console.log(reqId, 'received sessions', normValid.length);
           // 최신이 위로 오도록 정렬
-          sessions.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          setTestSessions(sessions);
-          console.log(reqId, 'setTestSessions', sessions.length);
+          normValid.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          setTestSessions(normValid);
+          console.log(reqId, 'setTestSessions', normValid.length);
           if (!currentSessionId) {
-            const firstValid = sessions.find((s: any) => isValidSessionId(s.session_id));
+            const firstValid = normValid.find((s: any) => isValidSessionId(s.session_id));
             if (firstValid) {
               setCurrentSessionId(firstValid.session_id);
               setCurrentChatId(String(firstValid.chat_id || ''));
@@ -178,7 +199,7 @@ export default function Home() {
   // 새 세션 생성
   const createNewSession = async () => {
     try {
-      const response = await fetch('/api/chat/sessions', {
+      const response = await fetch('/backend/api/chat/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +211,17 @@ export default function Home() {
       });
 
       if (response.ok) {
-        const newSession = await response.json();
+        const raw = await response.json();
+        // 표준화: 세션 객체 키 이름을 통일
+        const newSession = {
+          session_id: raw.session_id || raw.sessionId || raw.id || '',
+          user_id: raw.user_id || raw.userId || (user?.id || getGuestId()),
+          chat_id: String(raw.chat_id ?? raw.chatId ?? ''),
+          created_at: raw.created_at || raw.createdAt || new Date().toISOString(),
+          title: raw.title || '',
+          status: raw.status || 'active',
+          service_type: raw.service_type || raw.serviceType || 'teacher',
+        } as any;
         // 메인 채팅창 즉시 초기화 (문제 창 숨김 효과)
         setCurrentMessages([]);
         setMessage('');
@@ -219,7 +250,11 @@ export default function Home() {
   // 세션별 메시지 불러오기
   const loadSessionMessages = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/chat/sessions/${sessionId}/messages`);
+      const response = await fetch(`/api/proxy/sessions/${sessionId}/messages`, {
+        headers: {
+          ...(isValidSessionId(sessionId) ? { 'x-session-id': sessionId } : {}),
+        },
+      });
       if (response.ok) {
         const messages = await response.json();
         setCurrentMessages(messages);
@@ -356,8 +391,15 @@ export default function Home() {
   // PDF 관련 함수들
   const checkPdfGenerationStatus = async () => {
     try {
+      const reqId = Math.random().toString(36).slice(2, 10);
       const response = await fetch("/backend/pdf-status", {
         method: "GET",
+        headers: {
+          "x-user-id": user?.id || getGuestId(),
+          "x-chat-id": String(currentChatId || ''),
+          ...(isValidSessionId(currentSessionId) ? { "x-session-id": currentSessionId as string } : {}),
+          "x-request-id": reqId,
+        },
       });
 
       if (response.ok) {
@@ -388,6 +430,11 @@ export default function Home() {
       // 세션 전환/메시지 저장 중에는 불필요한 리스트 리프레시를 지양
       const response = await fetch("/backend/pdfs", {
         method: "GET",
+        headers: {
+          "x-user-id": user?.id || getGuestId(),
+          "x-chat-id": String(currentChatId || ''),
+          ...(isValidSessionId(currentSessionId) ? { "x-session-id": currentSessionId as string } : {}),
+        },
       });
 
       console.log('PDF 목록 응답:', response.status, response.statusText);
@@ -580,13 +627,15 @@ export default function Home() {
       const reqId = Math.random().toString(36).slice(2, 10);
       const t0 = performance.now();
       console.debug(`[req:${reqId}] GET /backend/recent-questions start`);
+      const headers: Record<string, string> = {
+        "x-user-id": user?.id || getGuestId(),
+        "x-chat-id": String(currentChatId || ''),
+        "x-request-id": reqId,
+      };
+      if (isValidSessionId(currentSessionId)) headers["x-session-id"] = currentSessionId as string;
       const response = await fetch(`/backend/recent-questions`, {
         method: "GET",
-        headers: {
-          "x-user-id": user?.id || getGuestId(),
-          "x-chat-id": String(currentChatId || ''),
-          "x-request-id": reqId,
-        },
+        headers,
       });
 
       if (response.ok) {
@@ -602,7 +651,9 @@ export default function Home() {
         }
       } else {
         const errText = await response.text().catch(() => '');
-        console.warn('문제 서버 응답 오류:', response.status, errText);
+        console.warn('문제 서버 응답 오류:', response.status, errText, {
+          uid: user?.id || getGuestId(), cid: String(currentChatId || ''), sid: currentSessionId || ''
+        });
         // 서버 응답 오류 시에도 문제 컨테이너는 유지
       }
     } catch (error) {
