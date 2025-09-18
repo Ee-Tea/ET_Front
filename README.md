@@ -50,11 +50,45 @@ yarn install
 bun run install
 ```
 
-3. OpenAI API 키를 설정하세요!:
+3. 환경변수를 설정하세요!:
+
+프로젝트 루트에 `.env.local` 파일을 생성하고 다음 환경변수들을 설정하세요:
+
 ```bash
-cd agent
-echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+# OpenAI API 키 (LangGraph 에이전트용)
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Google OAuth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
+
+# Kakao OAuth
+NEXT_PUBLIC_KAKAO_CLIENT_ID=your_kakao_client_id
+NEXT_PUBLIC_KAKAO_REDIRECT_URI=http://localhost:3000/auth/kakao/callback
+
+# Naver OAuth
+NEXT_PUBLIC_NAVER_CLIENT_ID=your_naver_client_id
+NEXT_PUBLIC_NAVER_REDIRECT_URI=http://localhost:3000/auth/naver/callback
 ```
+
+**OAuth 설정 방법:**
+- Google: [Google Cloud Console](https://console.cloud.google.com/)에서 OAuth 2.0 클라이언트 ID 생성
+- Kakao: [Kakao Developers](https://developers.kakao.com/)에서 애플리케이션 등록
+- Naver: [Naver Developers](https://developers.naver.com/)에서 애플리케이션 등록
+
+**GitHub Secrets 설정 (CI/CD용):**
+GitHub Actions에서 Docker 이미지를 빌드할 때 사용할 시크릿을 설정하세요:
+
+1. GitHub 리포지토리 → Settings → Secrets and variables → Actions
+2. 다음 시크릿들을 추가하세요:
+   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+   - `NEXT_PUBLIC_GOOGLE_REDIRECT_URI`
+   - `NEXT_PUBLIC_KAKAO_CLIENT_ID`
+   - `NEXT_PUBLIC_KAKAO_REDIRECT_URI`
+   - `NEXT_PUBLIC_NAVER_CLIENT_ID`
+   - `NEXT_PUBLIC_NAVER_REDIRECT_URI`
+   - `DOCKER_USERNAME` (Docker Hub 사용자명)
+   - `DOCKER_PASSWORD` (Docker Hub 비밀번호)
 
 4. 개발 서버를 시작하세요:
 ```bash
