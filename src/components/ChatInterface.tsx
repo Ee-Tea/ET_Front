@@ -53,7 +53,7 @@ export function ChatInterface({
 
     try {
       // Health gate
-      const h = await fetch('/backend/health', { cache: 'no-store' });
+      const h = await fetch('/api/health', { cache: 'no-store' });
       if (!h.ok) throw new Error('Backend not ready');
       // 백엔드로 메시지 전송
       const response = await fetch('/api/chat', {

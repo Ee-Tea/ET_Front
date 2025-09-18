@@ -144,7 +144,7 @@ export default function Home() {
       try {
         const reqId = `[sessions:${Date.now().toString(36)}]`;
         const uid = user?.id || getGuestId();
-        const url = `/backend/api/chat/sessions`;
+        const url = `/api/chat/sessions`;
         console.log(reqId, 'GET', url);
         const response = await fetch(url, { headers: { 'x-request-id': reqId, 'x-user-id': uid } });
         console.log(reqId, 'status', response.status);
@@ -194,7 +194,7 @@ export default function Home() {
   // 새 세션 생성
   const createNewSession = async () => {
     try {
-      const response = await fetch('/backend/api/chat/sessions', {
+      const response = await fetch('/api/chat/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -401,7 +401,7 @@ export default function Home() {
   const checkPdfGenerationStatus = async () => {
     try {
       const reqId = Math.random().toString(36).slice(2, 10);
-      const response = await fetch("/backend/pdf-status", {
+      const response = await fetch("/api/backend/pdf-status", {
         method: "GET",
         headers: {
           "x-user-id": user?.id || getGuestId(),
@@ -437,7 +437,7 @@ export default function Home() {
     try {
       console.log('PDF 목록 가져오기 시도: /backend/pdfs');
       // 세션 전환/메시지 저장 중에는 불필요한 리스트 리프레시를 지양
-      const response = await fetch("/backend/pdfs", {
+      const response = await fetch("/api/proxy/pdfs", {
         method: "GET",
         headers: {
           "x-user-id": user?.id || getGuestId(),
@@ -472,7 +472,7 @@ export default function Home() {
   const downloadPdf = async (filename: string) => {
     try {
       console.log('PDF 다운로드 시도:', filename);
-      const response = await fetch(`/backend/pdf/${filename}`, {
+      const response = await fetch(`/api/proxy/pdf/${filename}`, {
         method: "GET",
       });
 
@@ -654,7 +654,7 @@ export default function Home() {
       let response: Response | null = null;
       let lastErrBody = '';
       while (attempt < 3) {
-        response = await fetch(`/backend/recent-questions${qs}`, {
+        response = await fetch(`/api/proxy/recent-questions${qs}`, {
           method: "GET",
           headers,
         });
@@ -679,7 +679,7 @@ export default function Home() {
         if (newQuestions.length === 0 && userMessage && isProblemGenerationRequest(userMessage)) {
           for (let i = 0; i < 5; i++) {
             await new Promise(r => setTimeout(r, 400));
-            const r2 = await fetch(`/backend/recent-questions${qs}`, { method: 'GET', headers });
+            const r2 = await fetch(`/api/proxy/recent-questions${qs}`, { method: 'GET', headers });
             if (!r2.ok) break;
             const d2 = await r2.json();
             if (Array.isArray(d2?.questions) && d2.questions.length > 0) {
@@ -694,7 +694,7 @@ export default function Home() {
         if (Array.isArray(newQuestions) && newQuestions.length > 0 && newQuestions.length < 10) {
           for (let i = 0; i < 3; i++) {
             await new Promise(r => setTimeout(r, 250));
-            const r3 = await fetch(`/backend/recent-questions${qs}`, { method: 'GET', headers });
+            const r3 = await fetch(`/api/proxy/recent-questions${qs}`, { method: 'GET', headers });
             if (!r3.ok) break;
             const d3 = await r3.json();
             if (Array.isArray(d3?.questions) && d3.questions.length > newQuestions.length) {
@@ -917,7 +917,7 @@ export default function Home() {
   // PDF 뷰어 열기
   const handleViewPdf = (filename: string) => {
     // PDF 서버는 8000 포트를 사용하는 것 같으니 두 가지 URL 모두 시도
-    const pdfUrl = `/backend/pdf/${filename}`;
+    const pdfUrl = `/api/proxy/pdf/${filename}`;
     console.log('PDF 뷰어 열기:', filename, 'URL:', pdfUrl);
     setCurrentPdfUrl(pdfUrl);
     setCurrentPdfFilename(filename);

@@ -306,9 +306,9 @@ const MainPage: React.FC<MainPageProps> = (props) => {
 
     try {
       // Health gate
-      const h = await fetch('/backend/health', { cache: 'no-store' });
+      const h = await fetch('/api/health', { cache: 'no-store' });
       if (!h.ok) throw new Error('Backend not ready');
-      const response = await fetch("/backend/chat", {
+      const response = await fetch("/api/proxy/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -456,7 +456,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
   // 웹페이지와 동일한 최근 질문 가져오기 함수
   const fetchRecentQuestions = async (userMessage?: string) => {
     try {
-      const response = await fetch(`/backend/recent-questions`, {
+      const response = await fetch(`/api/proxy/recent-questions`, {
         method: "GET",
       });
 

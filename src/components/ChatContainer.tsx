@@ -371,7 +371,7 @@ export default function ChatContainer({
 
     try {
       const { uid, cid } = resolveIds();
-      const response = await fetch("/backend/clear", {
+      const response = await fetch("/api/proxy/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

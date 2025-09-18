@@ -46,8 +46,8 @@ export default function PdfViewer({
     // 여러 URL을 시도해보기
     const urlsToTry = [
       pdfUrl,
-      pdfUrl.replace('/api/', '/backend/'),
-      pdfUrl.replace('/backend/', '/api/')
+      pdfUrl.replace('/api/proxy/', '/api/proxy/'),
+      pdfUrl.replace('/api/proxy/', '/api/proxy/')
     ];
     
     for (const url of urlsToTry) {

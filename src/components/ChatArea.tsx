@@ -101,7 +101,7 @@ export default function ChatArea({
 
     try {
       // Health gate
-      const h = await fetch('/backend/health', { cache: 'no-store' });
+      const h = await fetch('/api/health', { cache: 'no-store' });
       if (!h.ok) throw new Error('Backend not ready');
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -149,8 +149,8 @@ export default function ChatArea({
 
     try {
       // Health gate (best-effort)
-      await fetch('/backend/health', { cache: 'no-store' }).catch(() => {});
-      const response = await fetch("/backend/clear", {
+      await fetch('/api/health', { cache: 'no-store' }).catch(() => {});
+      const response = await fetch("/api/proxy/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
