@@ -69,6 +69,9 @@ NEXT_PUBLIC_KAKAO_REDIRECT_URI=http://localhost:3000/auth/kakao/callback
 # Naver OAuth
 NEXT_PUBLIC_NAVER_CLIENT_ID=your_naver_client_id
 NEXT_PUBLIC_NAVER_REDIRECT_URI=http://localhost:3000/auth/naver/callback
+
+# Backend API
+NEXT_PUBLIC_BFF_ORIGIN=http://localhost:8100
 ```
 
 **OAuth 설정 방법:**
@@ -87,6 +90,7 @@ GitHub Actions에서 Docker 이미지를 빌드할 때 사용할 시크릿을 �
    - `NEXT_PUBLIC_KAKAO_REDIRECT_URI`
    - `NEXT_PUBLIC_NAVER_CLIENT_ID`
    - `NEXT_PUBLIC_NAVER_REDIRECT_URI`
+   - `NEXT_PUBLIC_BFF_ORIGIN` (백엔드 API 주소)
    - `DOCKER_USERNAME` (Docker Hub 사용자명)
    - `DOCKER_PASSWORD` (Docker Hub 비밀번호)
 

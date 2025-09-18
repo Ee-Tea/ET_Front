@@ -63,6 +63,7 @@ jobs:
           NEXT_PUBLIC_KAKAO_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_KAKAO_REDIRECT_URI }}
           NEXT_PUBLIC_NAVER_CLIENT_ID=${{ secrets.NEXT_PUBLIC_NAVER_CLIENT_ID }}
           NEXT_PUBLIC_NAVER_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_NAVER_REDIRECT_URI }}
+          NEXT_PUBLIC_BFF_ORIGIN=${{ secrets.NEXT_PUBLIC_BFF_ORIGIN }}
 
     - name: Image digest
       run: echo ${{ steps.build.outputs.digest }}

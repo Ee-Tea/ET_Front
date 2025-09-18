@@ -10,6 +10,8 @@ services:
       - REACT_APP_BFF_API_URL=http://10.0.136.230:8100
       - REACT_APP_AUTH_API_URL=http://10.0.136.230:8123
       - REACT_APP_LANGGRAPH_API_URL=http://10.0.136.230:8000
+      # BFF Origin 설정
+      - NEXT_PUBLIC_BFF_ORIGIN=http://10.0.136.230:8100
 
     networks:
       - et-agent-network
