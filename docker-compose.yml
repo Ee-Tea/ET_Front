@@ -6,14 +6,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      # 백엔드 API 엔드포인트 추가
-      - REACT_APP_BFF_API_URL=http://bff-api:8000
-      - REACT_APP_AUTH_API_URL=http://auth-api:8000
-      - REACT_APP_LANGGRAPH_API_URL=http://langgraph-api:8000
-      # 또는 외부 접근용 (필요한 경우)
-      - REACT_APP_BFF_EXTERNAL_URL=http://43.203.101.187:8100
-      - REACT_APP_AUTH_EXTERNAL_URL=http://43.203.101.187:8124
-      - REACT_APP_LANGGRAPH_EXTERNAL_URL=http://43.203.101.187:8123
+      # 백엔드 API 엔드포인트 수정
+      - REACT_APP_BFF_API_URL=http://10.0.136.230:8100
+      - REACT_APP_AUTH_API_URL=http://10.0.136.230:8123
+      - REACT_APP_LANGGRAPH_API_URL=http://10.0.136.230:8000
+
     networks:
       - et-agent-network
     depends_on:
