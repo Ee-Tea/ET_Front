@@ -18,6 +18,15 @@ export default function PdfContainer({
   isBackendConnected = false
 }: PdfContainerProps) {
   
+  const isProblemGen = (filename: string = '') => {
+    const name = filename || '';
+    return (
+      name.includes('문제집') ||
+      name.includes('만들어줘') ||
+      name.includes('만들')
+    );
+  };
+
   // PDF 카테고리별로 분류 (백엔드에서 생성된 PDF만)
   const categorizedPdfs = {
     problemSolving: availablePdfs.filter(pdf => 
@@ -26,9 +35,11 @@ export default function PdfContainer({
     wrongAnswerAnalysis: availablePdfs.filter(pdf => 
       pdf.filename?.includes('분석리포트')
     ),
-    problemGeneration: availablePdfs.filter(pdf => 
-      pdf.filename?.includes('문제집')
-    )
+    problemGeneration: availablePdfs.filter(pdf => isProblemGen(pdf.filename)),
+    others: availablePdfs.filter(pdf => {
+      const name = pdf.filename || '';
+      return !(name.includes('답안집') || name.includes('분석리포트') || isProblemGen(name));
+    })
   };
 
   // 디버깅: PDF 파일명과 분류 결과 로그
@@ -44,6 +55,26 @@ export default function PdfContainer({
   const handleView = (filename: string) => {
     if (onViewPdf) {
       onViewPdf(filename);
+    }
+  };
+
+  const formatKstDate = (val: any) => {
+    try {
+      if (!val && val !== 0) return '알 수 없음';
+      let ms: number;
+      if (typeof val === 'number') {
+        ms = val > 1e12 ? val : val * 1000; // sec → ms 보정
+      } else if (typeof val === 'string') {
+        const t = Date.parse(val);
+        if (isNaN(t)) return '알 수 없음';
+        ms = t;
+      } else {
+        return '알 수 없음';
+      }
+      const kst = new Date(ms + 9 * 60 * 60 * 1000);
+      return kst.toLocaleDateString('ko-KR');
+    } catch {
+      return '알 수 없음';
     }
   };
 
@@ -95,9 +126,7 @@ export default function PdfContainer({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-800">{pdf.filename}</p>
-                  <p className="text-xs text-gray-500">
-                    생성일: {pdf.created_at ? new Date(pdf.created_at).toLocaleDateString('ko-KR') : '알 수 없음'}
-                  </p>
+                  <p className="text-xs text-gray-500">생성일: {formatKstDate(pdf.created_at)}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -180,6 +209,12 @@ export default function PdfContainer({
               categorizedPdfs.problemGeneration, 
               "📚", 
               "bg-green-500"
+            )}
+            {renderPdfSection(
+              "기타", 
+              categorizedPdfs.others, 
+              "📄", 
+              "bg-gray-500"
             )}
           </div>
         )}
