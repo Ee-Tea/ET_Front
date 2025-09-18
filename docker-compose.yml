@@ -12,6 +12,8 @@ services:
       - REACT_APP_LANGGRAPH_API_URL=http://10.0.136.230:8000
       # BFF Origin 설정 (백엔드 인스턴스의 프라이빗 IP)
       - NEXT_PUBLIC_BFF_ORIGIN=http://10.0.136.230:8100
+      # Auth API Origin 설정 (백엔드 인스턴스의 프라이빗 IP)
+      - NEXT_PUBLIC_AUTH_ORIGIN=http://10.0.136.230:8124
 
     networks:
       - et-agent-network

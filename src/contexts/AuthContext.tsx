@@ -24,8 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const authOrigin = (process.env.NEXT_PUBLIC_AUTH_ORIGIN as string) ||
-    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8124` : '');
+  // 프론트엔드 프록시 API 사용
+  const authOrigin = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/proxy/auth` : '';
 
   useEffect(() => {
     try {
