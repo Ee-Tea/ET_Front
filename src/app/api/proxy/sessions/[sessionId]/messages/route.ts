@@ -5,7 +5,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 function getBffOrigin() {
-  return process.env.NEXT_PUBLIC_BFF_ORIGIN || 'http://localhost:8100';
+  // 임시로 하드코딩 (환경변수 문제 해결 후 제거)
+  return process.env.NEXT_PUBLIC_BFF_ORIGIN || 'http://10.0.136.230:8100';
 }
 
 export async function GET(request: NextRequest, context: { params: Promise<{ sessionId: string }> }) {

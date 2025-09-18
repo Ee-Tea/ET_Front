@@ -5,12 +5,21 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 function getBffOrigin() {
-  return process.env.NEXT_PUBLIC_BFF_ORIGIN || 'http://localhost:8100';
+  // 임시로 하드코딩 (환경변수 문제 해결 후 제거)
+  return process.env.NEXT_PUBLIC_BFF_ORIGIN || 'http://10.0.136.230:8100';
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const url = `${getBffOrigin()}/chat`;
+    const bffOrigin = getBffOrigin();
+    const url = `${bffOrigin}/chat`;
+    
+    console.log('Proxy Chat Request:', {
+      bffOrigin,
+      url,
+      env: process.env.NEXT_PUBLIC_BFF_ORIGIN
+    });
+    
     const body = await request.text();
     const incomingHeaders = request.headers;
     const headers: Record<string, string> = {
@@ -22,12 +31,16 @@ export async function POST(request: NextRequest) {
       'x-session-id': incomingHeaders.get('x-session-id') || '',
     };
 
+    console.log('Making request to:', url, 'with headers:', headers);
+
     const res = await fetch(url, {
       method: 'POST',
       headers,
       body,
       cache: 'no-store',
     });
+
+    console.log('Response status:', res.status, res.statusText);
 
     const text = await res.text();
     const sessionId = res.headers.get('x-session-id') || '';
@@ -39,8 +52,14 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err: any) {
+    console.error('Proxy Chat Error:', err);
     const message = typeof err?.message === 'string' ? err.message : 'Upstream call failed';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ 
+      error: message,
+      details: err.toString(),
+      bffOrigin: getBffOrigin(),
+      env: process.env.NEXT_PUBLIC_BFF_ORIGIN
+    }, { status: 502 });
   }
 }
 

@@ -4,8 +4,9 @@ export async function GET(request: NextRequest) {
   try {
     // 백엔드 서버들의 헬스체크
     const backendUrls = [
-      'http://localhost:8100/health',  // BFF API
-      'http://localhost:8124/auth/health'  // Auth API
+      'http://10.0.136.230:8100/health',  // BFF API
+      'http://10.0.136.230:8124/auth/health',  // Auth API
+      'http://10.0.136.230:8123/ok',  // LangGraph API
     ];
 
     const healthChecks = await Promise.allSettled(
