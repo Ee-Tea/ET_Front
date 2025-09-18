@@ -53,12 +53,22 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: any) {
     console.error('Proxy Chat Error:', err);
+    console.error('Error stack:', err.stack);
+    console.error('Error details:', {
+      message: err.message,
+      code: err.code,
+      cause: err.cause,
+      name: err.name
+    });
+    
     const message = typeof err?.message === 'string' ? err.message : 'Upstream call failed';
     return NextResponse.json({ 
       error: message,
       details: err.toString(),
       bffOrigin: getBffOrigin(),
-      env: process.env.NEXT_PUBLIC_BFF_ORIGIN
+      env: process.env.NEXT_PUBLIC_BFF_ORIGIN,
+      stack: err.stack,
+      code: err.code
     }, { status: 502 });
   }
 }
