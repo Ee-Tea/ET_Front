@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // 프론트엔드 프록시 API 사용
-  const authOrigin = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/proxy/auth` : '';
+  const authOrigin = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/proxy` : '';
 
   useEffect(() => {
     try {
