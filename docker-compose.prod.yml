@@ -18,8 +18,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-    env_file:
-      - env.production
+      # 백엔드 API 엔드포인트 (다른 인스턴스의 백엔드)
+      - REACT_APP_BFF_API_URL=http://10.0.136.230:8100
+      - REACT_APP_AUTH_API_URL=http://10.0.136.230:8124
+      - REACT_APP_LANGGRAPH_API_URL=http://10.0.136.230:8000
+      # BFF Origin 설정 (백엔드 인스턴스의 프라이빗 IP)
+      - NEXT_PUBLIC_BFF_ORIGIN=http://10.0.136.230:8100
+      # Auth API Origin 설정 (백엔드 인스턴스의 프라이빗 IP)
+      - NEXT_PUBLIC_AUTH_ORIGIN=http://10.0.136.230:8124
     networks:
       - et-agent-network
     restart: unless-stopped
